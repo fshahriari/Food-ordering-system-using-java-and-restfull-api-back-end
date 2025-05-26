@@ -6,9 +6,9 @@ import java.sql.Connection;
 public class Main {
     public static void main(String[] args) {
         try (Connection conn = DatabaseManager.getConnection()) {
-            System.out.println(" اتصال به دیتابیس با موفقیت برقرار شد!");
+            System.out.println("successful connection");
         } catch (Exception e) {
-            System.out.println(" خطا در اتصال:");
+            System.out.println("failed connection");
             e.printStackTrace();
         }
     }
