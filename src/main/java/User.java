@@ -17,4 +17,6 @@ public class User
 		this.password = password;
 		this.email = email;
     }
+
+	//methods to add: sign up, log in, managing profile(edit, view, delete)
 }
