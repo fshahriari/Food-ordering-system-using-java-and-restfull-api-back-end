@@ -1,3 +1,5 @@
+package com.snappfood.model;
+
 public class courier extends User
 {
     

@@ -1,3 +1,5 @@
+package com.snappfood.model;
+
 public class Buyer extends User
 {
     //orders history (Database or ArrayList)

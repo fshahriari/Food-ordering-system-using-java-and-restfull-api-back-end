@@ -1,3 +1,5 @@
+package com.snappfood.model;
+
 public class Seller extends User
 {
     // other informations about the resturants

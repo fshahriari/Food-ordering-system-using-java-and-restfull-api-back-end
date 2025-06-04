@@ -31,7 +31,7 @@ aut_food.yaml</font>
   <span class="s0">description</span><span class="s1">: </span><span class="s3">APIs related to restaurant management</span>
 <span class="s1">- </span><span class="s0">name</span><span class="s1">: </span><span class="s3">buyer</span>
   <span class="s0">description</span><span class="s1">: </span><span class="s3">APIs for buyers to browse, order, and review</span>
-<span class="s1">- </span><span class="s0">name</span><span class="s1">: </span><span class="s3">courier</span>
+<span class="s1">- </span><span class="s0">name</span><span class="s1">: </span><span class="s3">com.snappfood.model.courier</span>
   <span class="s0">description</span><span class="s1">: </span><span class="s3">APIs for couriers to manage deliveries</span>
 <span class="s1">- </span><span class="s0">name</span><span class="s1">: </span><span class="s3">order</span>
   <span class="s0">description</span><span class="s1">: </span><span class="s3">APIs for order tracking and payment processing</span>
@@ -70,7 +70,7 @@ aut_food.yaml</font>
                   <span class="s0">enum</span><span class="s1">:</span>
                   <span class="s1">- </span><span class="s3">buyer</span>
                   <span class="s1">- </span><span class="s3">seller</span>
-                  <span class="s1">- </span><span class="s3">courier</span>
+                  <span class="s1">- </span><span class="s3">com.snappfood.model.courier</span>
                 <span class="s0">address</span><span class="s1">:</span>
                   <span class="s0">type</span><span class="s1">: </span><span class="s3">string</span>
                 <span class="s0">profileImageBase64</span><span class="s1">:</span>
@@ -87,7 +87,7 @@ aut_food.yaml</font>
                       <span class="s0">type</span><span class="s1">: </span><span class="s3">string</span>
       <span class="s0">responses</span><span class="s1">:</span>
         <span class="s0">'200'</span><span class="s1">:</span>
-          <span class="s0">description</span><span class="s1">: </span><span class="s3">User registered successfully</span>
+          <span class="s0">description</span><span class="s1">: </span><span class="s3">com.snappfood.model.User registered successfully</span>
           <span class="s0">content</span><span class="s1">:</span>
             <span class="s0">application/json</span><span class="s1">:</span>
               <span class="s0">schema</span><span class="s1">:</span>
@@ -150,7 +150,7 @@ aut_food.yaml</font>
                   <span class="s0">type</span><span class="s1">: </span><span class="s3">string</span>
       <span class="s0">responses</span><span class="s1">:</span>
         <span class="s0">'200'</span><span class="s1">:</span>
-          <span class="s0">description</span><span class="s1">: </span><span class="s3">User logged in successfully</span>
+          <span class="s0">description</span><span class="s1">: </span><span class="s3">com.snappfood.model.User logged in successfully</span>
           <span class="s0">content</span><span class="s1">:</span>
             <span class="s0">application/json</span><span class="s1">:</span>
               <span class="s0">schema</span><span class="s1">:</span>
@@ -273,7 +273,7 @@ aut_food.yaml</font>
       <span class="s1">- </span><span class="s0">bearerAuth</span><span class="s1">: []</span>
       <span class="s0">responses</span><span class="s1">:</span>
         <span class="s0">'200'</span><span class="s1">:</span>
-          <span class="s0">description</span><span class="s1">: </span><span class="s3">User logged out successfully</span>
+          <span class="s0">description</span><span class="s1">: </span><span class="s3">com.snappfood.model.User logged out successfully</span>
           <span class="s0">content</span><span class="s1">:</span>
             <span class="s0">application/json</span><span class="s1">:</span>
               <span class="s0">schema</span><span class="s1">:</span>
@@ -783,7 +783,7 @@ aut_food.yaml</font>
         <span class="s0">in</span><span class="s1">: </span><span class="s3">query</span>
         <span class="s0">schema</span><span class="s1">:</span>
           <span class="s0">type</span><span class="s1">: </span><span class="s3">string</span>
-      <span class="s1">- </span><span class="s0">name</span><span class="s1">: </span><span class="s3">courier</span>
+      <span class="s1">- </span><span class="s0">name</span><span class="s1">: </span><span class="s3">com.snappfood.model.courier</span>
         <span class="s0">in</span><span class="s1">: </span><span class="s3">query</span>
         <span class="s0">schema</span><span class="s1">:</span>
           <span class="s0">type</span><span class="s1">: </span><span class="s3">string</span>
@@ -1534,7 +1534,7 @@ aut_food.yaml</font>
   <span class="s0">/deliveries/available</span><span class="s1">:</span>
     <span class="s0">get</span><span class="s1">:</span>
       <span class="s0">tags</span><span class="s1">:</span>
-      <span class="s1">- </span><span class="s3">courier</span>
+      <span class="s1">- </span><span class="s3">com.snappfood.model.courier</span>
       <span class="s0">summary</span><span class="s1">: </span><span class="s3">Get available delivery requests</span>
       <span class="s0">security</span><span class="s1">:</span>
       <span class="s1">- </span><span class="s0">bearerAuth</span><span class="s1">: []</span>
@@ -1566,7 +1566,7 @@ aut_food.yaml</font>
   <span class="s0">/deliveries/{order_id}</span><span class="s1">:</span>
     <span class="s0">patch</span><span class="s1">:</span>
       <span class="s0">tags</span><span class="s1">:</span>
-      <span class="s1">- </span><span class="s3">courier</span>
+      <span class="s1">- </span><span class="s3">com.snappfood.model.courier</span>
       <span class="s0">summary</span><span class="s1">: </span><span class="s3">Change status of a delivery request</span>
       <span class="s0">security</span><span class="s1">:</span>
       <span class="s1">- </span><span class="s0">bearerAuth</span><span class="s1">: []</span>
@@ -1620,7 +1620,7 @@ aut_food.yaml</font>
   <span class="s0">/deliveries/history</span><span class="s1">:</span>
     <span class="s0">get</span><span class="s1">:</span>
       <span class="s0">tags</span><span class="s1">:</span>
-      <span class="s1">- </span><span class="s3">courier</span>
+      <span class="s1">- </span><span class="s3">com.snappfood.model.courier</span>
       <span class="s0">parameters</span><span class="s1">:</span>
       <span class="s1">- </span><span class="s0">name</span><span class="s1">: </span><span class="s3">search</span>
         <span class="s0">in</span><span class="s1">: </span><span class="s3">query</span>
@@ -1867,7 +1867,7 @@ aut_food.yaml</font>
         <span class="s0">in</span><span class="s1">: </span><span class="s3">query</span>
         <span class="s0">schema</span><span class="s1">:</span>
           <span class="s0">type</span><span class="s1">: </span><span class="s3">string</span>
-      <span class="s1">- </span><span class="s0">name</span><span class="s1">: </span><span class="s3">courier</span>
+      <span class="s1">- </span><span class="s0">name</span><span class="s1">: </span><span class="s3">com.snappfood.model.courier</span>
         <span class="s0">in</span><span class="s1">: </span><span class="s3">query</span>
         <span class="s0">schema</span><span class="s1">:</span>
           <span class="s0">type</span><span class="s1">: </span><span class="s3">string</span>
@@ -2341,7 +2341,7 @@ aut_food.yaml</font>
           <span class="s1">- </span><span class="s3">unpaid and cancelled</span>
           <span class="s1">- </span><span class="s3">waiting vendor</span>
           <span class="s1">- </span><span class="s3">cancelled</span>
-          <span class="s1">- </span><span class="s3">finding courier</span>
+          <span class="s1">- </span><span class="s3">finding com.snappfood.model.courier</span>
           <span class="s1">- </span><span class="s3">on the way</span>
           <span class="s1">- </span><span class="s3">completed</span>
         <span class="s0">created_at</span><span class="s1">:</span>

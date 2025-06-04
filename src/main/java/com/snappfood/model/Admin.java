@@ -1,3 +1,5 @@
+package com.snappfood.model;
+
 import java.util.HashMap;
 
 public class Admin extends User
