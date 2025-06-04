@@ -7,15 +7,16 @@ public class User
     private String email; //optional
     private String password;
     private String address; //optional
-    public  int id;
+    private   int id;
     private String profilePic;
     private String role;
+    private BankInfo bankInfo;
     //BankInfo, for seller, buyer, and com.snappfood.model.courier
 
     public User(){}
 
     public User (String name, String phoneNumber, String email,
-         String password, String role, String address, String profilePic)
+         String password, String role, String address /*String profilePic*/)
     {
         this.name = name;
 		this.phoneNumber = phoneNumber;
@@ -23,11 +24,11 @@ public class User
         this.password = password;
         this.role = role;
         this.address = address;
-        this.profilePic = profilePic;
+        //this.profilePic = profilePic;
 
     }
-    public User(int id, String name, String phoneNumber, String email, String password, String role, String address, String profilePic) {
-        this(name, phoneNumber, email, password, role, address, profilePic);
+    public User(int id, String name, String phoneNumber, String email, String password, String role, String address) {
+        this(name, phoneNumber, email, password, role, address);
         this.id = id;
     }
     public int getId(){
@@ -71,6 +72,18 @@ public class User
     }
     public void setAddress(String address) {
         this.address = address;
+    }
+    public String getProfilePic() {
+        return profilePic;
+    }
+    public void setProfilePic(String profilePic) {
+        this.profilePic = profilePic;
+    }
+    public BankInfo getBankInfo() {
+        return bankInfo;
+    }
+    public void setBankInfo(BankInfo bankInfo) {
+        this.bankInfo = bankInfo;
     }
     //methods to add: sign up, log in, managing profile(edit, view, delete)
 }

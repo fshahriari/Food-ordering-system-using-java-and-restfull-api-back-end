@@ -1,4 +1,4 @@
-package com.snappfood.model;
+/*package com.snappfood.model;
 
 public class courier extends User
 {
@@ -10,3 +10,5 @@ public class courier extends User
     // methods to add:delivering, update delivery status,
     // 
 }
+
+ */

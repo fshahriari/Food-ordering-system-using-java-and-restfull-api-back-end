@@ -1,4 +1,4 @@
-package com.snappfood.model;
+/*package com.snappfood.model;
 
 import java.util.HashMap;
 
@@ -15,3 +15,5 @@ public class Admin extends User
     // confirm or removing users, (static) view overall system statics
     // (static) checking order problems
 }
+
+ */

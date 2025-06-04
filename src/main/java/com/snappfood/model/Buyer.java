@@ -1,4 +1,4 @@
-package com.snappfood.model;
+/*package com.snappfood.model;
 
 public class Buyer extends User
 {
@@ -10,3 +10,4 @@ public class Buyer extends User
     //methods to add: view order history, managing the shopping cart, place orders 
     
 }
+*/
