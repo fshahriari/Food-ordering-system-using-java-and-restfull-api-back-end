@@ -31,7 +31,6 @@ public class Main {
         UserController controller = new UserController();
         Map<String, Object> result = controller.handleSignup(newUser);
 
-        // خروجی برای بررسی
         System.out.println("Status Code: " + result.get("status"));
         if (result.containsKey("error")) {
             System.out.println("Error: " + result.get("error"));
