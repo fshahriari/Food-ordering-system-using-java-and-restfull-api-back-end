@@ -2,13 +2,13 @@ package com.snappfood.model;
 
 public class User
 {
-    private String name;
-    private String phoneNumber;
+    private String fullName;
+    private String phone;
     private String email; //optional
     private String password;
     private String address; //optional
     private   int id;
-    private String profilePic;
+    private String profileImageBase64;
     private String role;
     private BankInfo bankInfo;
     //BankInfo, for seller, buyer, and com.snappfood.model.courier
@@ -16,20 +16,17 @@ public class User
     public User(){}
 
     public User (String name, String phoneNumber, String email,
-         String password, String role, String address /*String profilePic*/)
+         String password, String role, String address ,String profilePic, BankInfo bankInfo)
     {
-        this.name = name;
-		this.phoneNumber = phoneNumber;
+        this.fullName = name;
+		this.phone = phoneNumber;
 		this.email = email;
         this.password = password;
         this.role = role;
         this.address = address;
-        //this.profilePic = profilePic;
+        this.profileImageBase64 = profilePic;
+        this.bankInfo = bankInfo;
 
-    }
-    public User(int id, String name, String phoneNumber, String email, String password, String role, String address) {
-        this(name, phoneNumber, email, password, role, address);
-        this.id = id;
     }
     public int getId(){
         return id;
@@ -38,16 +35,16 @@ public class User
         this.id = id;
     }
     public String getName(){
-        return name;
+        return fullName;
     }
     public void setName(String name){
-        this.name = name;
+        this.fullName = name;
     }
-    public String getPhoneNumber(){
-        return phoneNumber;
+    public String getPhone(){
+        return phone;
     }
-    public void setPhoneNumber(String phoneNumber){
-        this.phoneNumber = phoneNumber;
+    public void setPhone(String phoneNumber){
+        this.phone = phoneNumber;
     }
     public String getEmail(){
         return email;
@@ -74,10 +71,10 @@ public class User
         this.address = address;
     }
     public String getProfilePic() {
-        return profilePic;
+        return profileImageBase64;
     }
     public void setProfilePic(String profilePic) {
-        this.profilePic = profilePic;
+        this.profileImageBase64 = profilePic;
     }
     public BankInfo getBankInfo() {
         return bankInfo;

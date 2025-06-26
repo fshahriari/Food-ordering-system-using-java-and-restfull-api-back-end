@@ -1,6 +1,6 @@
 /*package com.snappfood.model;
 
-public class Buyer extends User
+/*public class Buyer extends User
 {
     //orders history (Database or ArrayList)
     public Buyer(String name, String phoneNumber, String email, String password, String address) {
@@ -9,5 +9,7 @@ public class Buyer extends User
 
     //methods to add: view order history, managing the shopping cart, place orders 
     
+<<<<<<< Updated upstream
 }
 */
+
