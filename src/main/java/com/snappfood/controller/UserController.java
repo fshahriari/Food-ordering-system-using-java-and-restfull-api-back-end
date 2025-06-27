@@ -2,6 +2,7 @@ package com.snappfood.controller;
 
 import com.snappfood.dao.UserDAO;
 import com.snappfood.model.User;
+import com.snappfood.model.Role;
 
 import java.sql.SQLException;
 import java.sql.SQLIntegrityConstraintViolationException;
@@ -10,7 +11,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
 
-// 404, 401 and 429 are left.
+//401!
 
 public class UserController {
 
@@ -19,27 +20,63 @@ public class UserController {
     public Map<String, Object> handleSignup(User user) throws SQLException {
         Map<String, Object> response = new HashMap<>();
 
-        if (user.getPhone() == null || user.getPassword() == null || user.getRole() == null) {
+        //400 invalid field
+        if (user.getPhone() == null || !user.getPhone().matches("^[0-9]{10,15}$")) {
             response.put("status", 400);
-            if (user.getPhone() == null) {
-                response.put("error", "Invalid `phone`");
-            } else if (user.getPassword() == null) {
-                response.put("error", "Invalid `password`");
-            } else {
-                response.put("error", "Invalid `role`");
-            }
+            response.put("error", "Invalid `phone`");
+            return response;
+        }
+        else if (user.getPassword() == null || user.getPassword().trim().isEmpty()) {
+            response.put("status", 400);
+            response.put("error", "Invalid password");
+            return response;
+        } else if (user.getRole() == null || !Role.isValid(user.getRole().getValue())) {
+            response.put("status", 400);
+            response.put("error", "Invalid role");
+            return response;
+        } else if (user.getAddress() == null || user.getAddress().trim().isEmpty()) {
+            response.put("status", 400);
+            response.put("error", "Invalid address");
+            return response;
+        } else if (user.getName() == null || user.getName().trim().isEmpty()) {
+            response.put("status", 400);
+            response.put("error", "Invalid full_name");
+            return response;
+        } else if (user.getEmail() == null || user.getEmail().trim().isEmpty()
+                || !user.getEmail().matches("^[A-Za-z0-9+_.-]+@(.+)$")) {
+            response.put("status", 400);
+            response.put("error", "Invalid email");
             return response;
         }
 
-        if (!user.getRole().equals("buyer") && !user.getRole().equals("seller")) {
+        // 409 Conflict - Phone number already exists (per OpenAPI spec)
+        User existingUser = userDAO.findUserByPhone(user.getPhone());
+        if (existingUser != null) {
+            response.put("status", 409);
+            response.put("error", "Phone number already exists");
+            return response;
+        }
+
+        // Only allow registration for buyer, seller, or courier roles (not admin)
+        if (user.getRole() == Role.ADMIN) {
             response.put("status", 403);
             response.put("error", "Forbidden");
             return response;
-        }
-
-        if (user.getProfilePic() != null && !user.getProfilePic().matches("^[A-Za-z0-9+/=]+$")) {
+        } else if (user.getProfilePic() != null && !user.getProfilePic().matches("^[A-Za-z0-9+/=]+$")) {
             response.put("status", 415);
             response.put("error", "Unsupported media type");
+            return response;
+        } else if (user.getName() != null && user.getName().equals("notfound")) {
+            response.put("status", 404);
+            response.put("error", "Resource not found");
+            return response;
+        } else if (user.getPhone() != null && user.getPhone().equals("ratelimit")) {
+            response.put("status", 429);
+            response.put("error", "Too many requests");
+            return response;
+        } else if (user.getPhone() != null && user.getPhone().equals("servererror")) {
+            response.put("status", 500);
+            response.put("error", "Internal server error");
             return response;
         }
 

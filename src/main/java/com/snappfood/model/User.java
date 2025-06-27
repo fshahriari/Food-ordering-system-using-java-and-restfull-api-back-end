@@ -1,6 +1,7 @@
 package com.snappfood.model;
 
 import com.snappfood.controller.UserController;
+import com.snappfood.model.Role;
 
 import java.sql.SQLException;
 import java.util.Map;
@@ -12,16 +13,16 @@ public class User
     private String email; //optional
     private String password;
     private String address; //optional
-    private   int id;
+    private int id;
     private String profileImageBase64;
-    private String role;
+    private Role role;
     private BankInfo bankInfo;
     //BankInfo, for seller, buyer, and com.snappfood.model.courier
 
     public User(){}
 
     public User (String name, String phoneNumber, String email,
-         String password, String role, String address ,String profilePic, BankInfo bankInfo)
+         String password, Role role, String address ,String profilePic, BankInfo bankInfo)
     {
         this.fullName = name;
 		this.phone = phoneNumber;
@@ -63,10 +64,10 @@ public class User
     public void setPassword(String password){
         this.password = password;
     }
-    public String getRole(){
+    public Role getRole(){
         return role;
     }
-    public void setRole(String role){
+    public void setRole(Role role){
         this.role = role;
     }
     public String getAddress() {
@@ -91,12 +92,22 @@ public class User
     static public void signup(String name, String phone, String email, String password, String role, String address,
                           String profilePicAddress, String bankName, String accountNumber) throws SQLException {
         BankInfo bankInfo = new BankInfo(bankName, accountNumber);
+        Role enumRole = null;
+        for (Role r : Role.values()) {
+            if (r.getValue().equalsIgnoreCase(role)) {
+                enumRole = r;
+                break;
+            }
+        }
+        if (enumRole == null) {
+            throw new IllegalArgumentException("Invalid role: " + role);
+        }
         User newUser = new User(
                 name,
                 phone,
                 email,
                 password,
-                role,
+                enumRole,
                 address,
                 profilePicAddress,
                 bankInfo
@@ -118,5 +129,10 @@ public class User
             System.out.println("Token: " + result.get("token"));
         }
     }
-    //methods to add: sign up, log in, managing profile(edit, view, delete)
+
+    static public void logIn()
+    {
+
+    }
+    //methods to add: log in, managing profile(edit, view, delete)
 }
