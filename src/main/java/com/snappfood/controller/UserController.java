@@ -21,7 +21,13 @@ public class UserController {
 
         if (user.getPhone() == null || user.getPassword() == null || user.getRole() == null) {
             response.put("status", 400);
-            response.put("error", "Invalid `phone`, `password`, or `role`");
+            if (user.getPhone() == null) {
+                response.put("error", "Invalid `phone`");
+            } else if (user.getPassword() == null) {
+                response.put("error", "Invalid `password`");
+            } else {
+                response.put("error", "Invalid `role`");
+            }
             return response;
         }
 
@@ -39,7 +45,7 @@ public class UserController {
 
         boolean success = userDAO.insertUser(user);
         if (success) {
-            int userId=1;
+            int userId = 1;
             String token = UUID.randomUUID().toString();
             response.put("status", 200);
             response.put("message", "Success");

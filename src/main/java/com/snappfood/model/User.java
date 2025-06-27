@@ -1,5 +1,10 @@
 package com.snappfood.model;
 
+import com.snappfood.controller.UserController;
+
+import java.sql.SQLException;
+import java.util.Map;
+
 public class User
 {
     private String fullName;
@@ -81,6 +86,37 @@ public class User
     }
     public void setBankInfo(BankInfo bankInfo) {
         this.bankInfo = bankInfo;
+    }
+
+    static public void signup(String name, String phone, String email, String password, String role, String address,
+                          String profilePicAddress, String bankName, String accountNumber) throws SQLException {
+        BankInfo bankInfo = new BankInfo(bankName, accountNumber);
+        User newUser = new User(
+                name,
+                phone,
+                email,
+                password,
+                role,
+                address,
+                profilePicAddress,
+                bankInfo
+        );
+        UserController controller = new UserController();
+        Map<String, Object> result = null;
+        try {
+            result = controller.handleSignup(newUser);
+        } catch (SQLException e) {
+            throw new RuntimeException(e);
+        }
+
+        System.out.println("Status Code: " + result.get("status"));
+        if (result.containsKey("error")) {
+            System.out.println("Error: " + result.get("error"));
+        } else {
+            System.out.println("Message: " + result.get("message"));
+            System.out.println("User ID: " + result.get("user_id"));
+            System.out.println("Token: " + result.get("token"));
+        }
     }
     //methods to add: sign up, log in, managing profile(edit, view, delete)
 }
