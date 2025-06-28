@@ -99,9 +99,9 @@ public class User
                 break;
             }
         }
-        if (enumRole == null) {
-            throw new IllegalArgumentException("Invalid role: " + role);
-        }
+//        if (enumRole == null) {
+//            throw new IllegalArgumentException("Invalid role: " + role);
+//        }
         User newUser = new User(
                 name,
                 phone,

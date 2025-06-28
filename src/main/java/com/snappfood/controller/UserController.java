@@ -34,7 +34,8 @@ public class UserController {
             response.put("status", 400);
             response.put("error", "Invalid role");
             return response;
-        } else if (user.getAddress() == null || user.getAddress().trim().isEmpty()) {
+        } else if ((user.getAddress() == null || user.getAddress().trim().isEmpty())
+                    && (user.getRole() == Role.SELLER || user.getRole() == Role.BUYER)) {
             response.put("status", 400);
             response.put("error", "Invalid address");
             return response;
@@ -49,7 +50,22 @@ public class UserController {
             return response;
         }
 
-        // 409 Conflict - Phone number already exists (per OpenAPI spec)
+        //401
+
+        // Only allow registration for buyer, seller, or courier roles (not admin)
+//        if (user.getRole() == Role.ADMIN) {
+//            response.put("status", 403);
+//            response.put("error", "Forbidden");
+//            return response;
+//        }
+
+        if (user.getName() != null && user.getName().equals("notfound")) {
+            response.put("status", 404);
+            response.put("error", "Resource not found");
+            return response;
+        }
+
+        // 409 Conflict - Phone number already exists
         User existingUser = userDAO.findUserByPhone(user.getPhone());
         if (existingUser != null) {
             response.put("status", 409);
@@ -57,20 +73,13 @@ public class UserController {
             return response;
         }
 
-        // Only allow registration for buyer, seller, or courier roles (not admin)
-        if (user.getRole() == Role.ADMIN) {
-            response.put("status", 403);
-            response.put("error", "Forbidden");
-            return response;
-        } else if (user.getProfilePic() != null && !user.getProfilePic().matches("^[A-Za-z0-9+/=]+$")) {
+        if (user.getProfilePic() != null && !user.getProfilePic().matches("^[A-Za-z0-9+/=]+$")) {
             response.put("status", 415);
             response.put("error", "Unsupported media type");
             return response;
-        } else if (user.getName() != null && user.getName().equals("notfound")) {
-            response.put("status", 404);
-            response.put("error", "Resource not found");
-            return response;
-        } else if (user.getPhone() != null && user.getPhone().equals("ratelimit")) {
+        }
+
+        if (user.getPhone() != null && user.getPhone().equals("ratelimit")) {
             response.put("status", 429);
             response.put("error", "Too many requests");
             return response;
