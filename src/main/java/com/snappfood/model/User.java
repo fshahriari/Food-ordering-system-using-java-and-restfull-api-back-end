@@ -1,7 +1,14 @@
 package com.snappfood.model;
 
+import com.mysql.cj.protocol.x.SyncFlushDeflaterOutputStream;
 import com.snappfood.controller.UserController;
+import com.snappfood.exception.*;
 import com.snappfood.model.Role;
+import java.nio.file.Files;
+import java.nio.file.Paths;
+import java.io.IOException;
+import java.util.Arrays;
+import java.util.List;
 
 import java.sql.SQLException;
 import java.util.Map;
@@ -14,25 +21,25 @@ public class User
     private String password;
     private String address; //optional
     private int id;
-    private String profileImageBase64;
+    private byte[] profileImage;
+    private String profileImagePath; // Path to profile image on user's device. this feild will not be uploaded to database and it's temporary.
     private Role role;
     private BankInfo bankInfo;
-    //BankInfo, for seller, buyer, and com.snappfood.model.courier
+    //BankInfo, for seller, customer, and com.snappfood.model.courier
 
     public User(){}
 
     public User (String name, String phoneNumber, String email,
-         String password, Role role, String address ,String profilePic, BankInfo bankInfo)
+                 String password, Role role, String address , byte[] profileImage, BankInfo bankInfo) // <-- Change here
     {
         this.fullName = name;
-		this.phone = phoneNumber;
-		this.email = email;
+        this.phone = phoneNumber;
+        this.email = email;
         this.password = password;
         this.role = role;
         this.address = address;
-        this.profileImageBase64 = profilePic;
+        this.profileImage = profileImage; // <-- And here
         this.bankInfo = bankInfo;
-
     }
     public int getId(){
         return id;
@@ -76,11 +83,12 @@ public class User
     public void setAddress(String address) {
         this.address = address;
     }
-    public String getProfilePic() {
-        return profileImageBase64;
+    public byte[] getProfileImage() { // <-- Change here
+        return profileImage;
     }
-    public void setProfilePic(String profilePic) {
-        this.profileImageBase64 = profilePic;
+
+    public void setProfileImage(byte[] profileImage) { // <-- And here
+        this.profileImage = profileImage;
     }
     public BankInfo getBankInfo() {
         return bankInfo;
@@ -88,9 +96,41 @@ public class User
     public void setBankInfo(BankInfo bankInfo) {
         this.bankInfo = bankInfo;
     }
+    public String getProfileImagePath() {
+        return profileImagePath;
+    }
+    public void setProfileImagePath(String profileImagePath) {
+        this.profileImagePath = profileImagePath;
+    }
+    private static byte[] readImageToBytes(String imagePath) throws IOException {
+        if (imagePath == null || imagePath.trim().isEmpty()) {
+            return null;
+        }
+        return Files.readAllBytes(Paths.get(imagePath));
+    }
 
     static public void signup(String name, String phone, String email, String password, String role, String address,
-                          String profilePicAddress, String bankName, String accountNumber) throws SQLException {
+                              String imagePath, String bankName, String accountNumber) {
+
+        byte[] profileImage = null;
+        try {
+            if (imagePath != null && !imagePath.trim().isEmpty()) {
+                profileImage = Files.readAllBytes(Paths.get(imagePath));
+                String mimeType = Files.probeContentType(Paths.get(imagePath));
+                List<String> allowedMimeTypes = Arrays.asList("image/jpeg", "image/png", "image/gif");
+                if (mimeType == null || !allowedMimeTypes.contains(mimeType)) {
+                    throw new UnsupportedMediaTypeException("Unsupported media type");
+                }
+            }
+        } catch (UnsupportedMediaTypeException e) {
+            System.err.println("error: " + e.getMessage());
+            return;
+        }
+        catch (IOException e) {
+            System.err.println("Error reading image file: " + e.getMessage());
+            return;
+        }
+
         BankInfo bankInfo = new BankInfo(bankName, accountNumber);
         Role enumRole = null;
         for (Role r : Role.values()) {
@@ -99,9 +139,7 @@ public class User
                 break;
             }
         }
-//        if (enumRole == null) {
-//            throw new IllegalArgumentException("Invalid role: " + role);
-//        }
+
         User newUser = new User(
                 name,
                 phone,
@@ -109,24 +147,22 @@ public class User
                 password,
                 enumRole,
                 address,
-                profilePicAddress,
+                profileImage,
                 bankInfo
         );
-        UserController controller = new UserController();
-        Map<String, Object> result = null;
-        try {
-            result = controller.handleSignup(newUser);
-        } catch (SQLException e) {
-            throw new RuntimeException(e);
-        }
 
-        System.out.println("Status Code: " + result.get("status"));
-        if (result.containsKey("error")) {
-            System.out.println("Error: " + result.get("error"));
-        } else {
+        UserController controller = new UserController();
+        try {
+            // The controller will now receive a pre-validated User object
+            Map<String, Object> result = controller.handleSignup(newUser);
+            System.out.println("Status Code: " + result.get("status"));
             System.out.println("Message: " + result.get("message"));
             System.out.println("User ID: " + result.get("user_id"));
             System.out.println("Token: " + result.get("token"));
+        } catch (InvalidInputException | DuplicatePhoneNumberException | ForbiddenException | ResourceNotFoundException | TooManyRequestsException | InternalServerErrorException e) {
+            System.err.println("Signup Failed. Error: " + e.getMessage());
+        } catch (SQLException e) {
+            System.err.println("A critical database error occurred: " + e.getMessage());
         }
     }
 
@@ -134,5 +170,7 @@ public class User
     {
 
     }
+
     //methods to add: log in, managing profile(edit, view, delete)
+
 }

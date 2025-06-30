@@ -22,7 +22,7 @@ public class Main {
             e.printStackTrace();
         }
         User.signup("Ali Rezaei", "09123456789", "ali@example.com", "123456",
-                "buyer", "Tehran, Iran", "BASE64IMAGESTRING", "Mallat", "1234567890123456");
+                "customer", "Tehran, Iran", "BASE64IMAGESTRING", "Mallat", "1234567890123456");
     }
 }
 

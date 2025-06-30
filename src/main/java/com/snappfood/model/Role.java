@@ -2,7 +2,7 @@ package com.snappfood.model;
 
 public enum Role {
     SELLER("seller"),
-    BUYER("buyer"),
+    CUSTOMER("customer"),
     ADMIN("admin"),
     COURIER("courier");
 
