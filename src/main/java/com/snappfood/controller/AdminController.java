@@ -18,4 +18,12 @@ public class AdminController {
             return null;
         }
     }
+
+    public void confirmUser(int userId) throws SQLException {
+        userDAO.confirmUser(userId);
+    }
+
+    public void rejectUser(int userId) throws SQLException {
+        userDAO.rejectUser(userId);
+    }
 }

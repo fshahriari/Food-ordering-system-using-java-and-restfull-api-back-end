@@ -96,21 +96,25 @@ public class UserController {
         }
 
         // Insert user into the database.
-        boolean success = userDAO.insertUser(user);
+        boolean success;
+        if (user.getRole() == Role.SELLER || user.getRole() == Role.COURIER) {
+            success = userDAO.insertPendingUser(user);
+        } else {
+            success = userDAO.insertUser(user);
+        }
         if (success) {
             Map<String, Object> response = new HashMap<>();
-            // In a real application, you would get the new user's ID from the database,
-            // for example, by modifying insertUser to return the generated ID.
-            int userId = userDAO.findUserByPhone(user.getPhone()).getId(); // Fetch the newly created user to get the ID
-            String token = UUID.randomUUID().toString();
-
+            String message;
+            if (user.getRole() == Role.SELLER || user.getRole() == Role.COURIER) {
+                message = "Registration request sent. Waiting for admin approval.";
+            } else {
+                message = "User registered successfully.";
+            }
             response.put("status", 200);
-            response.put("message", "Success");
-            response.put("user_id", userId);
-            response.put("token", token);
+            response.put("message", message);
             return response;
         } else {
-            throw new InternalServerErrorException("Failed to create user due to a database error.");
+            throw new SQLException("Failed to create user due to a database error.");
         }
     }
 }
