@@ -12,6 +12,62 @@ import java.util.List;
 
 public class UserDAO {
 
+    private static final String USERS_TABLE = "users";
+    private static final String PENDING_USERS_TABLE = "pending_users";
+
+    public void incrementFailedLoginAttempts(String phone) throws SQLException {
+        // First try to update the users table
+        boolean updated = updateFailedAttemptsInTable(USERS_TABLE, phone);
+        // If no user was found in the users table, try the pending_users table
+        if (!updated) {
+            updateFailedAttemptsInTable(PENDING_USERS_TABLE, phone);
+        }
+    }
+
+    private boolean updateFailedAttemptsInTable(String tableName, String phone) throws SQLException {
+        String sql = "UPDATE " + tableName + " SET failed_login_attempts = failed_login_attempts + 1 WHERE phone = ?";
+        try (Connection conn = DatabaseManager.getConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+            stmt.setString(1, phone);
+            int rowsAffected = stmt.executeUpdate();
+            return rowsAffected > 0;
+        }
+    }
+
+    public void resetFailedLoginAttempts(String phone) throws SQLException {
+        // Reset in both tables just in case, though a user should only be in one.
+        resetAttemptsInTable(USERS_TABLE, phone);
+        resetAttemptsInTable(PENDING_USERS_TABLE, phone);
+    }
+
+    private void resetAttemptsInTable(String tableName, String phone) throws SQLException {
+        String sql = "UPDATE " + tableName + " SET failed_login_attempts = 0, lock_time = NULL WHERE phone = ?";
+        try (Connection conn = DatabaseManager.getConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+            stmt.setString(1, phone);
+            stmt.executeUpdate();
+        }
+    }
+
+    public void lockUserAccount(String phone, int lockDurationInMinutes) throws SQLException {
+        Timestamp lockTime = new Timestamp(System.currentTimeMillis() + (long) lockDurationInMinutes * 60 * 1000);
+        boolean updated = lockAccountInTable(USERS_TABLE, phone, lockTime);
+        if (!updated) {
+            lockAccountInTable(PENDING_USERS_TABLE, phone, lockTime);
+        }
+    }
+
+    private boolean lockAccountInTable(String tableName, String phone, Timestamp lockTime) throws SQLException {
+        String sql = "UPDATE " + tableName + " SET lock_time = ? WHERE phone = ?";
+        try (Connection conn = DatabaseManager.getConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+            stmt.setTimestamp(1, lockTime);
+            stmt.setString(2, phone);
+            int rowsAffected = stmt.executeUpdate();
+            return rowsAffected > 0;
+        }
+    }
+
     public boolean insertUser(User user) throws SQLException {
         String sql = "INSERT INTO users (full_name, phone, email, password, role, address, profile_image, bank_name, account_number) " +
                 "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)";
@@ -59,6 +115,54 @@ public class UserDAO {
             user = findInTable("pending_users", phone);
         }
         return user;
+    }
+
+    public User findUserByPhoneAndPassword(String phone, String password) throws SQLException {
+        String sql = "SELECT * FROM users WHERE phone = ? AND password = ?";
+        try (Connection conn = DatabaseManager.getConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+            stmt.setString(1, phone);
+            stmt.setString(2, password);
+            try (ResultSet rs = stmt.executeQuery()) {
+                if (rs.next()) {
+                    return extractUserFromResultSet(rs);
+                }
+            }
+        }
+        return null;
+    }
+
+    public User findPendingUserByPhoneAndPassword(String phone, String password) throws SQLException {
+        String sql = "SELECT * FROM pending_users WHERE phone = ? AND password = ?";
+        try (Connection conn = DatabaseManager.getConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+            stmt.setString(1, phone);
+            stmt.setString(2, password);
+            try (ResultSet rs = stmt.executeQuery()) {
+                if (rs.next()) {
+                    return extractUserFromResultSet(rs);
+                }
+            }
+        }
+        return null;
+    }
+
+    public boolean isUserPending(String phone) throws SQLException {
+        return findInPendingTable(phone) != null;
+    }
+
+    private User findInPendingTable(String phone) throws SQLException {
+        String sql = "SELECT * FROM pending_users WHERE phone = ?";
+        try (Connection conn = DatabaseManager.getConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+            stmt.setString(1, phone);
+            try (ResultSet rs = stmt.executeQuery()) {
+                if (rs.next()) {
+                    return extractUserFromResultSet(rs);
+                }
+            }
+        }
+        return null;
     }
 
     private User findInTable(String tableName, String phone) throws SQLException {
@@ -148,6 +252,8 @@ public class UserDAO {
 
         User user = new User(fullName, phone, email, password, role, address, profileImage, bankInfo);
         user.setId(id);
+        user.setFailedLoginAttempts(rs.getInt("failed_login_attempts"));
+        user.setLockTime(rs.getTimestamp("lock_time"));
         return user;
     }
 }

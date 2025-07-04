@@ -1,107 +1,144 @@
 package com.snappfood.model;
 
-import com.mysql.cj.protocol.x.SyncFlushDeflaterOutputStream;
 import com.snappfood.controller.UserController;
 import com.snappfood.exception.*;
-import com.snappfood.model.Role;
+
+import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Paths;
-import java.io.IOException;
+import java.sql.SQLException;
+import java.sql.Timestamp;
 import java.util.Arrays;
 import java.util.List;
-
-import java.sql.SQLException;
 import java.util.Map;
 
-public class User
-{
+public class User {
     private String fullName;
     private String phone;
-    private String email; //optional
+    private String email;
     private String password;
-    private String address; //optional
+    private String address;
     private int id;
     private byte[] profileImage;
-    private String profileImagePath; // Path to profile image on user's device. this feild will not be uploaded to database and it's temporary.
+    private String profileImagePath;
     private Role role;
     private BankInfo bankInfo;
-    //BankInfo, for seller, customer, and com.snappfood.model.courier
+    private int failedLoginAttempts;
+    private Timestamp lockTime;
 
-    public User(){}
+    public User() {
+    }
 
-    public User (String name, String phoneNumber, String email,
-                 String password, Role role, String address , byte[] profileImage, BankInfo bankInfo) // <-- Change here
-    {
+    public User(String name, String phoneNumber, String email,
+                String password, Role role, String address, byte[] profileImage, BankInfo bankInfo) {
         this.fullName = name;
         this.phone = phoneNumber;
         this.email = email;
         this.password = password;
         this.role = role;
         this.address = address;
-        this.profileImage = profileImage; // <-- And here
+        this.profileImage = profileImage;
         this.bankInfo = bankInfo;
     }
-    public int getId(){
+
+    // Getters and Setters for all fields including new ones
+
+    public int getId() {
         return id;
     }
-    public void setId(int id){
+
+    public void setId(int id) {
         this.id = id;
     }
-    public String getName(){
+
+    public String getName() {
         return fullName;
     }
-    public void setName(String name){
+
+    public void setName(String name) {
         this.fullName = name;
     }
-    public String getPhone(){
+
+    public String getPhone() {
         return phone;
     }
-    public void setPhone(String phoneNumber){
+
+    public void setPhone(String phoneNumber) {
         this.phone = phoneNumber;
     }
-    public String getEmail(){
+
+    public String getEmail() {
         return email;
     }
-    public void setEmail(String email){
+
+    public void setEmail(String email) {
         this.email = email;
     }
-    public String getPassword(){
+
+    public String getPassword() {
         return password;
     }
-    public void setPassword(String password){
+
+    public void setPassword(String password) {
         this.password = password;
     }
-    public Role getRole(){
+
+    public Role getRole() {
         return role;
     }
-    public void setRole(Role role){
+
+    public void setRole(Role role) {
         this.role = role;
     }
+
     public String getAddress() {
         return address;
     }
+
     public void setAddress(String address) {
         this.address = address;
     }
-    public byte[] getProfileImage() { // <-- Change here
+
+    public byte[] getProfileImage() {
         return profileImage;
     }
 
-    public void setProfileImage(byte[] profileImage) { // <-- And here
+    public void setProfileImage(byte[] profileImage) {
         this.profileImage = profileImage;
     }
+
     public BankInfo getBankInfo() {
         return bankInfo;
     }
+
     public void setBankInfo(BankInfo bankInfo) {
         this.bankInfo = bankInfo;
     }
+
     public String getProfileImagePath() {
         return profileImagePath;
     }
+
     public void setProfileImagePath(String profileImagePath) {
         this.profileImagePath = profileImagePath;
     }
+
+    public int getFailedLoginAttempts() {
+        return failedLoginAttempts;
+    }
+
+    public void setFailedLoginAttempts(int failedLoginAttempts) {
+        this.failedLoginAttempts = failedLoginAttempts;
+    }
+
+    public Timestamp getLockTime() {
+        return lockTime;
+    }
+
+    public void setLockTime(Timestamp lockTime) {
+        this.lockTime = lockTime;
+    }
+
     private static byte[] readImageToBytes(String imagePath) throws IOException {
         if (imagePath == null || imagePath.trim().isEmpty()) {
             return null;
@@ -125,8 +162,7 @@ public class User
         } catch (UnsupportedMediaTypeException e) {
             System.err.println("error: " + e.getMessage());
             return;
-        }
-        catch (IOException e) {
+        } catch (IOException e) {
             System.err.println("Error reading image file: " + e.getMessage());
             return;
         }
@@ -153,7 +189,6 @@ public class User
 
         UserController controller = new UserController();
         try {
-            // The controller will now receive a pre-validated User object
             Map<String, Object> result = controller.handleSignup(newUser);
             System.out.println("Status Code: " + result.get("status"));
             System.out.println("Message: " + result.get("message"));
@@ -166,11 +201,22 @@ public class User
         }
     }
 
-    static public void logIn()
-    {
-
+    static public void logIn(String id, String password) {
+        UserController controller = new UserController();
+        try {
+            Map<String, Object> result = controller.handleLogin(id, password);
+            System.out.println("Status Code: " + result.get("status"));
+            System.out.println("Message: " + result.get("message"));
+            if (result.containsKey("token")) {
+                System.out.println("Token: " + result.get("token"));
+                User user = (User) result.get("user");
+                System.out.println("Welcome, " + user.getName() + "!");
+            }
+        } catch (InvalidInputException | UnauthorizedException | ForbiddenException | InternalServerErrorException |
+                 ResourceNotFoundException | TooManyRequestsException e) {
+            System.err.println("Login Failed. Error: " + e.getMessage());
+        } catch (SQLException e) {
+            System.err.println("A critical database error occurred: " + e.getMessage());
+        }
     }
-
-    //methods to add: log in, managing profile(edit, view, delete)
-
 }

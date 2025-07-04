@@ -3,11 +3,11 @@ package com.snappfood.controller;
 import com.snappfood.dao.UserDAO;
 import com.snappfood.exception.*;
 import com.snappfood.model.ConfirmStatus;
-import com.snappfood.model.Customer;
 import com.snappfood.model.User;
 import com.snappfood.model.Role;
 
 import java.sql.SQLException;
+import java.sql.Timestamp;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
@@ -16,6 +16,79 @@ import java.util.UUID;
 public class UserController {
 
     private final UserDAO userDAO = new UserDAO();
+    private static final int MAX_FAILED_ATTEMPTS = 5;
+    private static final int LOCK_TIME_IN_MINUTES = 1;
+
+    public Map<String, Object> handleLogin(String phone, String password) throws
+            InvalidInputException,
+            UnauthorizedException,
+            ForbiddenException,
+            InternalServerErrorException,
+            SQLException,
+            ResourceNotFoundException,
+            TooManyRequestsException
+    {
+        User existingUser = userDAO.findUserByPhone(phone);
+
+        if (existingUser != null && existingUser.getLockTime() != null && existingUser.getLockTime().after(new Timestamp(System.currentTimeMillis()))) {
+            throw new TooManyRequestsException("Too many requests - Account is locked");
+        }
+
+        if (phone == null || !phone.matches("^[0-9]{10,15}$")) {
+            throw new InvalidInputException("Invalid phone number");
+        }
+        if (password == null || password.trim().isEmpty()) {
+            throw new InvalidInputException("Invalid password");
+        }
+
+        try {
+            existingUser = userDAO.findUserByPhone(phone);
+            if (existingUser == null) {
+                throw new ResourceNotFoundException("Not found");
+            }
+
+            User pendingUser = userDAO.findPendingUserByPhoneAndPassword(phone, password);
+            if (pendingUser != null) {
+                throw new UnauthorizedException("Unauthorized");
+            }
+
+            User confirmedUser = userDAO.findUserByPhoneAndPassword(phone, password);
+            if (confirmedUser == null) {
+                userDAO.incrementFailedLoginAttempts(phone);
+                User updatedUser = userDAO.findUserByPhone(phone); // Re-fetch to get the latest attempt count
+                if (updatedUser != null && updatedUser.getFailedLoginAttempts() >= MAX_FAILED_ATTEMPTS) {
+                    userDAO.lockUserAccount(phone, LOCK_TIME_IN_MINUTES);
+                    throw new TooManyRequestsException("Too many requests - Account locked");
+                }
+                throw new ForbiddenException("Forbidden");
+            }
+
+            // 409 will be implemented after implementing multi-threading
+//            The user provides the correct phone number and password.
+//
+//                    Your server validates these credentials and successfully finds the active user account.
+//                    The Conflict Check: Before creating a new session (logging them in again), the server checks
+//                    if this user account already has an active session.
+//                    It finds the active session from the laptop. To prevent multiple simultaneous logins (which can be a
+//                    security risk or complicate application state), the server rejects the new login attempt.
+
+            //415: checks if the request is in jason or not! should be implemented in sign up too!
+
+
+
+
+            // If no exceptions are thrown, the user is valid and can be logged in
+            Map<String, Object> response = new HashMap<>();
+            response.put("status", 200);
+            response.put("message", "User logged in successfully.");
+            response.put("token", UUID.randomUUID().toString());
+            response.put("user", confirmedUser);
+            return response;
+
+        } catch (SQLException e) {
+            throw new InternalServerErrorException("Internal server error");
+        }
+    }
 
     public Map<String, Object> handleSignup(User user) throws
             InvalidInputException,
