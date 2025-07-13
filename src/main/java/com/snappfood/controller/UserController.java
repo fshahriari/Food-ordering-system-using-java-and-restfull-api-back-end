@@ -1,17 +1,15 @@
 package com.snappfood.controller;
-
 import com.snappfood.dao.UserDAO;
 import com.snappfood.exception.*;
 import com.snappfood.model.ConfirmStatus;
 import com.snappfood.model.User;
 import com.snappfood.model.Role;
+import com.snappfood.server.SessionRegistry;
 
 import java.sql.SQLException;
 import java.sql.Timestamp;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.UUID;
-
 
 public class UserController {
 
@@ -42,7 +40,6 @@ public class UserController {
         }
 
         try {
-            existingUser = userDAO.findUserByPhone(phone);
             if (existingUser == null) {
                 throw new ResourceNotFoundException("Not found");
             }
@@ -63,26 +60,17 @@ public class UserController {
                 throw new ForbiddenException("Forbidden");
             }
 
-            // 409 will be implemented after implementing multi-threading
-//            The user provides the correct phone number and password.
-//
-//                    Your server validates these credentials and successfully finds the active user account.
-//                    The Conflict Check: Before creating a new session (logging them in again), the server checks
-//                    if this user account already has an active session.
-//                    It finds the active session from the laptop. To prevent multiple simultaneous logins (which can be a
-//                    security risk or complicate application state), the server rejects the new login attempt.
-
-            //415: checks if the request is in jason or not! should be implemented in sign up too!
-
-
-
-
             // If no exceptions are thrown, the user is valid and can be logged in
             Map<String, Object> response = new HashMap<>();
             response.put("status", 200);
             response.put("message", "User logged in successfully.");
-            response.put("token", UUID.randomUUID().toString());
+
+            // Create a session in the registry and get the token
+            String token = SessionRegistry.createSession(confirmedUser.getId());
+            response.put("token", token);
+
             response.put("user", confirmedUser);
+
             return response;
 
         } catch (SQLException e) {
@@ -97,7 +85,8 @@ public class UserController {
             ResourceNotFoundException,
             TooManyRequestsException,
             InternalServerErrorException,
-            SQLException
+            SQLException,
+            UnauthorizedException
     {
 
         // 400 Bad Request: Validate all required user inputs.
@@ -149,9 +138,6 @@ public class UserController {
             throw new ForbiddenException("Forbidden request");
         }
 
-        // Note: Image validation (404 Not Found, 415 Unsupported Media Type) is now handled
-        // in the User.signup() method before this controller is called.
-
         // 409 Conflict: Check for duplicate phone number.
         User existingUser = userDAO.findUserByPhone(user.getPhone());
         if (existingUser != null) {
@@ -175,16 +161,26 @@ public class UserController {
         } else {
             success = userDAO.insertUser(user);
         }
+
         if (success) {
             Map<String, Object> response = new HashMap<>();
             String message;
+
             if (user.getRole() == Role.SELLER || user.getRole() == Role.COURIER) {
                 message = "Registration request sent. Waiting for admin approval.";
+                response.put("status", 200);
+                response.put("message", message);
             } else {
+                // For roles that are auto-approved (like CUSTOMER), create a session immediately.
+                User createdUser = userDAO.findUserByPhone(user.getPhone()); // Re-fetch user to get the ID
+                String token = SessionRegistry.createSession(createdUser.getId());
+
                 message = "User registered successfully.";
+                response.put("status", 200);
+                response.put("message", message);
+                response.put("user_id", String.valueOf(createdUser.getId()));
+                response.put("token", token);
             }
-            response.put("status", 200);
-            response.put("message", message);
             return response;
         } else {
             throw new SQLException("Failed to create user due to a database error.");
