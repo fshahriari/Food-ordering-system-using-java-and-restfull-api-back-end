@@ -100,13 +100,20 @@ public class RequestHandler implements Runnable {
                         } else if (path.equals("/auth/login") && method.equals("POST")) {
                             Map<String, String> loginData = gson.fromJson(body, Map.class);
                             responseMap = userController.handleLogin(loginData.get("phone"), loginData.get("password"));
+                        } else if (path.equals("/auth/profile") && method.equals("GET")) {
+                            if (userId == null) {
+                                throw new UnauthorizedException("Authentication token is required.");
+                            }
+                            responseMap = userController.handleGetProfile(userId);
                         }
                         break;
+
                     default:
                         statusCode = 404;
                         responseMap = Map.of("error", "Resource not found");
                         break;
                 }
+
             } catch (UnsupportedMediaTypeException e) {
                 statusCode = 415;
                 responseMap = Map.of("error", e.getMessage());
@@ -159,7 +166,6 @@ public class RequestHandler implements Runnable {
             e.printStackTrace();
         }
 
-        // --- DIAGNOSTIC STEP ---
         System.out.println("--- SERVER RESPONSE ---");
         System.out.println(httpResponse);
         System.out.println("-----------------------");
