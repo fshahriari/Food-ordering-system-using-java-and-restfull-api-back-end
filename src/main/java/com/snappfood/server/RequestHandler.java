@@ -4,8 +4,7 @@ import com.google.gson.Gson;
 import com.google.gson.JsonSyntaxException;
 import com.snappfood.controller.AdminController;
 import com.snappfood.controller.UserController;
-import com.snappfood.exception.DuplicatePhoneNumberException;
-import com.snappfood.exception.InvalidInputException;
+import com.snappfood.exception.*;
 import com.snappfood.model.User;
 
 import java.io.IOException;
@@ -31,11 +30,26 @@ public class RequestHandler implements Runnable {
         this.gson = new Gson();
     }
 
+    private String getStatusText(int statusCode) {
+        switch (statusCode) {
+            case 200: return "OK";
+            case 201: return "Created";
+            case 400: return "Bad Request";
+            case 401: return "Unauthorized";
+            case 403: return "Forbidden";
+            case 404: return "Not Found";
+            case 409: return "Conflict";
+            case 415: return "Unsupported Media Type";
+            case 429: return "Too Many Requests";
+            case 500: return "Internal Server Error";
+            default: return "OK";
+        }
+    }
+
     @Override
     public void run() {
         String httpResponse;
         try {
-            // 1. Parse the incoming HTTP request
             String[] requestLines = request.split("\r\n");
             String[] requestLine = requestLines[0].split(" ");
             String method = requestLine[0];
@@ -59,13 +73,17 @@ public class RequestHandler implements Runnable {
                 }
             }
 
-            // 2. Prepare for response
             Map<String, Object> responseMap = Collections.emptyMap();
             int statusCode = 200;
 
-            // 3. Route the request based on the path
             try {
-                // Check for authorization token if required by the endpoint
+                if (method.equals("POST") || method.equals("PUT") || method.equals("PATCH")) {
+                    String contentType = headers.get("Content-Type");
+                    if (contentType == null || !contentType.toLowerCase().startsWith("application/json")) {
+                        throw new UnsupportedMediaTypeException("Content-Type header must be 'application/json'.");
+                    }
+                }
+
                 Integer userId = null;
                 if (headers.containsKey("Authorization")) {
                     String token = headers.get("Authorization").replace("Bearer ", "");
@@ -83,43 +101,55 @@ public class RequestHandler implements Runnable {
                             Map<String, String> loginData = gson.fromJson(body, Map.class);
                             responseMap = userController.handleLogin(loginData.get("phone"), loginData.get("password"));
                         }
-                        // ... other auth routes
                         break;
-
-                    // ... other cases
-
                     default:
                         statusCode = 404;
-                        responseMap = Map.of("error", "Not Found");
+                        responseMap = Map.of("error", "Resource not found");
                         break;
                 }
-
-                // --- NEW ERROR HANDLING ---
+            } catch (UnsupportedMediaTypeException e) {
+                statusCode = 415;
+                responseMap = Map.of("error", e.getMessage());
             } catch (InvalidInputException e) {
-                statusCode = 400; // Bad Request
+                statusCode = 400;
                 responseMap = Map.of("error", e.getMessage());
             } catch (DuplicatePhoneNumberException e) {
-                statusCode = 409; // Conflict
+                statusCode = 409;
                 responseMap = Map.of("error", e.getMessage());
+            } catch (ResourceNotFoundException e) {
+                statusCode = 404;
+                responseMap = Map.of("error", "Resource not found");
+            } catch (UnauthorizedException e) {
+                statusCode = 401;
+                responseMap = Map.of("error", "Unauthorized request");
+            } catch (ForbiddenException e) {
+                statusCode = 403;
+                responseMap = Map.of("error", "Forbidden request");
+            } catch (TooManyRequestsException e) {
+                statusCode = 429;
+                responseMap = Map.of("error", "Too many requests");
             } catch (JsonSyntaxException e) {
-                statusCode = 400; // Bad Request
+                statusCode = 400;
                 responseMap = Map.of("error", "Invalid JSON format.");
+            } catch (InternalServerErrorException e) {
+                statusCode = 500;
+                responseMap = Map.of("error", "Internal server error");
+                e.printStackTrace();
             } catch (Exception e) {
-                statusCode = 500; // Internal Server Error
+                statusCode = 500;
                 responseMap = Map.of("error", "An unexpected internal server error occurred.");
-                e.printStackTrace(); // Log the full error for debugging
+                e.printStackTrace();
             }
 
-            // 4. Create the HTTP response
+            String statusText = getStatusText(statusCode);
             String jsonResponse = gson.toJson(responseMap);
-            httpResponse = "HTTP/1.1 " + statusCode + " OK\r\n" +
+            httpResponse = "HTTP/1.1 " + statusCode + " " + statusText + "\r\n" +
                     "Content-Type: application/json\r\n" +
                     "Content-Length: " + jsonResponse.length() + "\r\n" +
                     "\r\n" +
                     jsonResponse;
 
         } catch (Exception e) {
-            // Catch-all for parsing or initial setup errors
             String errorJson = gson.toJson(Map.of("error", "Error processing request."));
             httpResponse = "HTTP/1.1 500 Internal Server Error\r\n" +
                     "Content-Type: application/json\r\n" +
@@ -129,7 +159,11 @@ public class RequestHandler implements Runnable {
             e.printStackTrace();
         }
 
-        // 5. Send the response
+        // --- DIAGNOSTIC STEP ---
+        System.out.println("--- SERVER RESPONSE ---");
+        System.out.println(httpResponse);
+        System.out.println("-----------------------");
+
         try {
             ByteBuffer responseBuffer = ByteBuffer.wrap(httpResponse.getBytes());
             clientChannel.write(responseBuffer);

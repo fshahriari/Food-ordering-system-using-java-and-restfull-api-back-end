@@ -1,5 +1,6 @@
 package com.snappfood.model;
 
+import com.google.gson.annotations.SerializedName;
 import com.snappfood.controller.UserController;
 import com.snappfood.exception.*;
 
@@ -13,17 +14,31 @@ import java.util.List;
 import java.util.Map;
 
 public class User {
+    @SerializedName("full_name")
     private String fullName;
+
     private String phone;
     private String email;
     private String password;
     private String address;
     private int id;
+
+    // This field maps to the 'profileImageBase64' in the YAML
+    @SerializedName("profileImageBase64")
     private byte[] profileImage;
+
+    // This field is for internal use and not part of the API JSON
     private String profileImagePath;
+
     private Role role;
+
+    @SerializedName("bank_info")
     private BankInfo bankInfo;
+
+    // Internal field, not part of the API JSON
     private int failedLoginAttempts;
+
+    // Internal field, not part of the API JSON
     private Timestamp lockTime;
 
     public User() {
@@ -41,7 +56,7 @@ public class User {
         this.bankInfo = bankInfo;
     }
 
-    // Getters and Setters for all fields including new ones
+    // Getters and Setters for all fields
 
     public int getId() {
         return id;
@@ -194,10 +209,12 @@ public class User {
             System.out.println("Message: " + result.get("message"));
             System.out.println("User ID: " + result.get("user_id"));
             System.out.println("Token: " + result.get("token"));
-        } catch (InvalidInputException | DuplicatePhoneNumberException | ForbiddenException | ResourceNotFoundException | TooManyRequestsException | InternalServerErrorException e) {
+        } catch (InvalidInputException | DuplicatePhoneNumberException | ForbiddenException | ResourceNotFoundException | TooManyRequestsException | InternalServerErrorException | UnauthorizedException e) {
             System.err.println("Signup Failed. Error: " + e.getMessage());
         } catch (SQLException e) {
             System.err.println("A critical database error occurred: " + e.getMessage());
+        } catch (Exception e) {
+            throw new RuntimeException(e);
         }
     }
 
@@ -217,6 +234,9 @@ public class User {
             System.err.println("Login Failed. Error: " + e.getMessage());
         } catch (SQLException e) {
             System.err.println("A critical database error occurred: " + e.getMessage());
+        }
+        catch (Exception e) {
+            System.err.println("An unexpected error occurred: " + e.getMessage());
         }
     }
 }
