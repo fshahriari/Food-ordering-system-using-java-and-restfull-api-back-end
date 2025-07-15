@@ -18,6 +18,26 @@ public class UserController {
     private static final int MAX_FAILED_ATTEMPTS = 5;
     private static final int LOCK_TIME_IN_MINUTES = 1;
 
+    /**
+     * Handles fetching the profile for an authenticated user.
+     * @param userId The ID of the authenticated user.
+     * @return A map containing the user's profile information.
+     * @throws ResourceNotFoundException if no user is found for the given ID.
+     * @throws SQLException if a database error occurs.
+     */
+    public Map<String, Object> handleGetProfile(int userId) throws ResourceNotFoundException, SQLException {
+        User user = userDAO.findUserById(userId);
+        if (user == null) {
+            // This is a safeguard, as the token validation should prevent this.
+            throw new ResourceNotFoundException("User profile not found.");
+        }
+
+        Map<String, Object> response = new HashMap<>();
+        response.put("status", 200);
+        response.put("user", user);
+        return response;
+    }
+
     public Map<String, Object> handleLogin(String phone, String password) throws Exception {
         User user = userDAO.findUserByPhone(phone);
 
@@ -29,12 +49,10 @@ public class UserController {
             throw new TooManyRequestsException("Too many requests - Account is locked");
         }
 
-        // This is a pending user, they cannot log in.
         if (userDAO.isUserPending(phone)) {
             throw new ForbiddenException("Forbidden - User is pending approval");
         }
 
-        // Securely check the password against the stored hash
         if (!BCrypt.checkpw(password, user.getPassword())) {
             userDAO.incrementFailedLoginAttempts(phone);
             if (user.getFailedLoginAttempts() + 1 >= MAX_FAILED_ATTEMPTS) {
@@ -57,20 +75,17 @@ public class UserController {
     }
 
     public Map<String, Object> handleSignup(User user) throws Exception {
-        // Validation logic...
         if (user.getPhone() == null || !user.getPhone().matches("^[0-9]{10,15}$")) {
             throw new InvalidInputException("Invalid phone number");
         }
         if (user.getPassword() == null || user.getPassword().trim().isEmpty()) {
             throw new InvalidInputException("Invalid password");
         }
-        // ... other validations
 
         if (userDAO.findUserByPhone(user.getPhone()) != null) {
             throw new DuplicatePhoneNumberException("Phone number already exists.");
         }
 
-        // --- HASH THE PASSWORD ---
         String hashedPassword = BCrypt.hashpw(user.getPassword(), BCrypt.gensalt());
         user.setPassword(hashedPassword);
 
