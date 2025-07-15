@@ -16,9 +16,7 @@ public class UserDAO {
     private static final String PENDING_USERS_TABLE = "pending_users";
 
     public void incrementFailedLoginAttempts(String phone) throws SQLException {
-        // First try to update the users table
         boolean updated = updateFailedAttemptsInTable(USERS_TABLE, phone);
-        // If no user was found in the users table, try the pending_users table
         if (!updated) {
             updateFailedAttemptsInTable(PENDING_USERS_TABLE, phone);
         }
@@ -35,13 +33,7 @@ public class UserDAO {
     }
 
     public void resetFailedLoginAttempts(String phone) throws SQLException {
-        // Reset in both tables just in case, though a user should only be in one.
-        resetAttemptsInTable(USERS_TABLE, phone);
-        resetAttemptsInTable(PENDING_USERS_TABLE, phone);
-    }
-
-    private void resetAttemptsInTable(String tableName, String phone) throws SQLException {
-        String sql = "UPDATE " + tableName + " SET failed_login_attempts = 0, lock_time = NULL WHERE phone = ?";
+        String sql = "UPDATE " + USERS_TABLE + " SET failed_login_attempts = 0, lock_time = NULL WHERE phone = ?";
         try (Connection conn = DatabaseManager.getConnection();
              PreparedStatement stmt = conn.prepareStatement(sql)) {
             stmt.setString(1, phone);
@@ -71,7 +63,6 @@ public class UserDAO {
     public boolean insertUser(User user) throws SQLException {
         String sql = "INSERT INTO users (full_name, phone, email, password, role, address, profile_image, bank_name, account_number) " +
                 "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)";
-
         try (Connection conn = DatabaseManager.getConnection();
              PreparedStatement stmt = conn.prepareStatement(sql)) {
             stmt.setString(1, user.getName());
@@ -91,7 +82,6 @@ public class UserDAO {
     public boolean insertPendingUser(User user) throws SQLException {
         String sql = "INSERT INTO pending_users (full_name, phone, email, password, role, address, profile_image, bank_name, account_number, status) " +
                 "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
-
         try (Connection conn = DatabaseManager.getConnection();
              PreparedStatement stmt = conn.prepareStatement(sql)) {
             stmt.setString(1, user.getName());
@@ -109,6 +99,26 @@ public class UserDAO {
         }
     }
 
+    /**
+     * Finds a user by their ID (primary key).
+     * @param userId The ID of the user to find.
+     * @return The User object, or null if not found.
+     * @throws SQLException if a database error occurs.
+     */
+    public User findUserById(int userId) throws SQLException {
+        String sql = "SELECT * FROM users WHERE id = ?";
+        try (Connection conn = DatabaseManager.getConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+            stmt.setInt(1, userId);
+            try (ResultSet rs = stmt.executeQuery()) {
+                if (rs.next()) {
+                    return extractUserFromResultSet(rs);
+                }
+            }
+        }
+        return null;
+    }
+
     public User findUserByPhone(String phone) throws SQLException {
         User user = findInTable("users", phone);
         if (user == null) {
@@ -118,11 +128,12 @@ public class UserDAO {
     }
 
     public User findUserByPhoneAndPassword(String phone, String password) throws SQLException {
-        String sql = "SELECT * FROM users WHERE phone = ? AND password = ?";
+        // This method is now only used for login credential check, not for general fetching.
+        // It's kept separate from findUserByPhone for clarity.
+        String sql = "SELECT * FROM users WHERE phone = ?";
         try (Connection conn = DatabaseManager.getConnection();
              PreparedStatement stmt = conn.prepareStatement(sql)) {
             stmt.setString(1, phone);
-            stmt.setString(2, password);
             try (ResultSet rs = stmt.executeQuery()) {
                 if (rs.next()) {
                     return extractUserFromResultSet(rs);
@@ -148,21 +159,7 @@ public class UserDAO {
     }
 
     public boolean isUserPending(String phone) throws SQLException {
-        return findInPendingTable(phone) != null;
-    }
-
-    private User findInPendingTable(String phone) throws SQLException {
-        String sql = "SELECT * FROM pending_users WHERE phone = ?";
-        try (Connection conn = DatabaseManager.getConnection();
-             PreparedStatement stmt = conn.prepareStatement(sql)) {
-            stmt.setString(1, phone);
-            try (ResultSet rs = stmt.executeQuery()) {
-                if (rs.next()) {
-                    return extractUserFromResultSet(rs);
-                }
-            }
-        }
-        return null;
+        return findInTable("pending_users", phone) != null;
     }
 
     private User findInTable(String tableName, String phone) throws SQLException {
@@ -232,28 +229,30 @@ public class UserDAO {
     }
 
     private User extractUserFromResultSet(ResultSet rs) throws SQLException {
-        String fullName = rs.getString("full_name");
-        String phone = rs.getString("phone");
-        String email = rs.getString("email");
-        String password = rs.getString("password");
-        String address = rs.getString("address");
-        int id = rs.getInt("id");
-        String roleStr = rs.getString("role");
-        byte[] profileImage = rs.getBytes("profile_image");
+        User user = new User();
+        user.setId(rs.getInt("id"));
+        user.setName(rs.getString("full_name"));
+        user.setPhone(rs.getString("phone"));
+        user.setEmail(rs.getString("email"));
+        user.setPassword(rs.getString("password"));
+        user.setAddress(rs.getString("address"));
+        user.setProfileImage(rs.getBytes("profile_image"));
+
         BankInfo bankInfo = new BankInfo(rs.getString("bank_name"), rs.getString("account_number"));
+        user.setBankInfo(bankInfo);
 
         Role role = null;
         for (Role r : Role.values()) {
-            if (r.getValue().equalsIgnoreCase(roleStr)) {
+            if (r.getValue().equalsIgnoreCase(rs.getString("role"))) {
                 role = r;
                 break;
             }
         }
+        user.setRole(role);
 
-        User user = new User(fullName, phone, email, password, role, address, profileImage, bankInfo);
-        user.setId(id);
         user.setFailedLoginAttempts(rs.getInt("failed_login_attempts"));
         user.setLockTime(rs.getTimestamp("lock_time"));
+
         return user;
     }
 }
