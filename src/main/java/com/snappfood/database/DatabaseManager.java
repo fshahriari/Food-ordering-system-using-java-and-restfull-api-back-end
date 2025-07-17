@@ -13,21 +13,19 @@ public class DatabaseManager {
 
     private static HikariDataSource dataSource;
 
-    // Static initializer block to set up the connection pool once.
+    // seting up connection pool
     static {
         HikariConfig config = new HikariConfig();
         config.setJdbcUrl(URL);
         config.setUsername(USER);
         config.setPassword(PASSWORD);
 
-        // Pool settings - good defaults
         config.setMaximumPoolSize(10);
         config.setMinimumIdle(5);
         config.setConnectionTimeout(30000); // 30 seconds
         config.setIdleTimeout(600000); // 10 minutes
         config.setMaxLifetime(1800000); // 30 minutes
 
-        // MySQL- specific optimizations
         config.addDataSourceProperty("cachePrepStmts", "true");
         config.addDataSourceProperty("prepStmtCacheSize", "250");
         config.addDataSourceProperty("prepStmtCacheSqlLimit", "2048");

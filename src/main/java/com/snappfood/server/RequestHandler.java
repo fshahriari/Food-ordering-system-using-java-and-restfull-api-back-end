@@ -10,6 +10,7 @@ import com.snappfood.model.User;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.channels.SocketChannel;
+import java.sql.SQLException;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
@@ -77,11 +78,12 @@ public class RequestHandler implements Runnable {
             int statusCode = 200;
 
             try {
-                if (method.equals("POST") || method.equals("PUT") || method.equals("PATCH")) {
-                    String contentType = headers.get("Content-Type");
-                    if (contentType == null || !contentType.toLowerCase().startsWith("application/json")) {
-                        throw new UnsupportedMediaTypeException("Content-Type header must be 'application/json'.");
-                    }
+                if ((method.equals("POST") || method.equals("PUT") || method.equals("PATCH")) &&
+                        (headers.get("Content-Type") == null || !headers.get("Content-Type").toLowerCase().startsWith("application/json"))) {
+                    throw new UnsupportedMediaTypeException("Content-Type header must be 'application/json' for POST, PUT, or PATCH requests.");
+                }
+                if (method.equals("GET") && body != null && !body.isEmpty()) {
+                    throw new UnsupportedMediaTypeException("GET requests cannot have a message body.");
                 }
 
                 Integer userId = null;
@@ -101,9 +103,6 @@ public class RequestHandler implements Runnable {
                             Map<String, String> loginData = gson.fromJson(body, Map.class);
                             responseMap = userController.handleLogin(loginData.get("phone"), loginData.get("password"));
                         } else if (path.equals("/auth/profile") && method.equals("GET")) {
-                            if (userId == null) {
-                                throw new UnauthorizedException("Authentication token is required.");
-                            }
                             responseMap = userController.handleGetProfile(userId);
                         }
                         break;
@@ -116,13 +115,13 @@ public class RequestHandler implements Runnable {
 
             } catch (UnsupportedMediaTypeException e) {
                 statusCode = 415;
-                responseMap = Map.of("error", e.getMessage());
+                responseMap = Map.of("error", "Unsupported Media Type");
             } catch (InvalidInputException e) {
                 statusCode = 400;
                 responseMap = Map.of("error", e.getMessage());
-            } catch (DuplicatePhoneNumberException e) {
+            } catch (DuplicatePhoneNumberException | ConflictException e) {
                 statusCode = 409;
-                responseMap = Map.of("error", e.getMessage());
+                responseMap = Map.of("error", "Conflict occurred");
             } catch (ResourceNotFoundException e) {
                 statusCode = 404;
                 responseMap = Map.of("error", "Resource not found");
@@ -138,13 +137,18 @@ public class RequestHandler implements Runnable {
             } catch (JsonSyntaxException e) {
                 statusCode = 400;
                 responseMap = Map.of("error", "Invalid JSON format.");
-            } catch (InternalServerErrorException e) {
+            } catch (SQLException e) {
+                statusCode = 500;
+                responseMap = Map.of("error", "Internal server error");
+                e.printStackTrace();
+            }
+            catch (InternalServerErrorException e) {
                 statusCode = 500;
                 responseMap = Map.of("error", "Internal server error");
                 e.printStackTrace();
             } catch (Exception e) {
                 statusCode = 500;
-                responseMap = Map.of("error", "An unexpected internal server error occurred.");
+                responseMap = Map.of("error", "Internal server error");
                 e.printStackTrace();
             }
 
@@ -166,9 +170,9 @@ public class RequestHandler implements Runnable {
             e.printStackTrace();
         }
 
-        System.out.println("--- SERVER RESPONSE ---");
-        System.out.println(httpResponse);
-        System.out.println("-----------------------");
+//        System.out.println("--- SERVER RESPONSE ---");
+//        System.out.println(httpResponse);
+//        System.out.println("-----------------------");
 
         try {
             ByteBuffer responseBuffer = ByteBuffer.wrap(httpResponse.getBytes());
@@ -179,7 +183,7 @@ public class RequestHandler implements Runnable {
             try {
                 clientChannel.close();
             } catch (IOException e) {
-                // Ignore
+                System.err.println("Could not close client channel cleanly: " + e.getMessage());
             }
         }
     }
