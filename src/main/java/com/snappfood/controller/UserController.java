@@ -130,7 +130,6 @@ public class UserController {
             throw new InvalidInputException("User data cannot be null.");
         }
 
-        //400
         if (user.getPhone() == null || !user.getPhone().matches("^[0-9]{10,15}$")) {
             throw new InvalidInputException("Invalid phone number");
         }
@@ -145,6 +144,17 @@ public class UserController {
         }
         if (user.getRole() == null) {
             throw new InvalidInputException("Invalid role");
+        }
+        if (user.getRole() == Role.COURIER || user.getRole() == Role.COURIER) {
+            if (user.getBankInfo() == null) {
+                throw new InvalidInputException("Invalid bank_info");
+            }
+            if (user.getBankInfo().getBankName() == null || !user.getBankInfo().getBankName().matches("^[\\p{L}\\s]{1,50}$")) {
+                throw new InvalidInputException("Invalid bank_name");
+            }
+            if (user.getBankInfo().getAccountNumber() == null || !user.getBankInfo().getAccountNumber().matches("^[0-9]{10,20}$")) {
+                throw new InvalidInputException("Invalid account_number");
+            }
         }
 
         //409

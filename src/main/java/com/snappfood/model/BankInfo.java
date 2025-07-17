@@ -11,12 +11,18 @@ public class BankInfo {
         this.accountNumber = accountNumber;
     }
     public String getBankName() {
+        if (bankName == null) {
+            return "";
+        }
         return bankName;
     }
     public void setBankName(String bankName) {
         this.bankName = bankName;
     }
     public String getAccountNumber() {
+        if (accountNumber == null) {
+            return "";
+        }
         return accountNumber;
     }
     public void setAccountNumber(String accountNumber) {
