@@ -149,10 +149,14 @@ public class UserController {
             if (user.getBankInfo() == null) {
                 throw new InvalidInputException("Invalid bank_info");
             }
-            if (user.getBankInfo().getBankName() == null || !user.getBankInfo().getBankName().matches("^[\\p{L}\\s]{1,50}$")) {
+            if (user.getBankInfo().getBankName() == null
+                    || !user.getBankInfo().getBankName().matches("^[\\p{L}\\s]{1,50}$")
+                    || user.getBankInfo().getBankName().trim().length() < 3) {
                 throw new InvalidInputException("Invalid bank_name");
             }
-            if (user.getBankInfo().getAccountNumber() == null || !user.getBankInfo().getAccountNumber().matches("^[0-9]{10,20}$")) {
+            if (user.getBankInfo().getAccountNumber() == null
+                    || !user.getBankInfo().getAccountNumber().matches("^[0-9]{10,20}$")
+                    || user.getBankInfo().getAccountNumber().trim().length() < 10) {
                 throw new InvalidInputException("Invalid account_number");
             }
         }
