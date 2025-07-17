@@ -78,10 +78,10 @@ public class UserController {
         if (phone == null || !phone.matches("^[0-9]{10,15}$")) {
             throw new InvalidInputException("Invalid phone number");
         }
-        if (password == null || password.isEmpty()) {
+        if (password == null) {
             throw new InvalidInputException("Invalid password");
         }
-        else if (password.trim().isEmpty()) {
+        if (password.trim().isEmpty()) {
             throw new InvalidInputException("Invalid password");
         }
 
