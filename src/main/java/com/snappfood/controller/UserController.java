@@ -139,10 +139,13 @@ public class UserController {
         if (user.getName() == null || user.getName().trim().isEmpty()) {
             throw new InvalidInputException("Invalid full_name");
         }
-        if (user.getAddress() != null && !user.getAddress().matches("^[\\p{L}\\p{N}\\s,.-]{0,200}$")) {
+        if (user.getAddress() != null
+                || !user.getAddress().matches("^[\\p{L}\\p{N}\\s,.-]{0,200}$")
+                || user.getAddress().trim().length() < 5) {
             throw new InvalidInputException("Invalid address");
         }
-        if (user.getRole() == null) {
+        if (user.getRole() == null || user.getRole().equals("undefined")
+                || !Role.isValid(user.getRole().getValue())) {
             throw new InvalidInputException("Invalid role");
         }
         if (user.getRole() == Role.COURIER || user.getRole() == Role.COURIER) {

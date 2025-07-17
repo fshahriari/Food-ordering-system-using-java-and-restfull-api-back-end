@@ -99,6 +99,10 @@ public class User {
     }
 
     public Role getRole() {
+        if (role != role.SELLER && role != role.CUSTOMER &&
+            role != role.ADMIN && role != role.COURIER) {
+            return Role.UNDEFIENED;
+        }
         return role;
     }
 

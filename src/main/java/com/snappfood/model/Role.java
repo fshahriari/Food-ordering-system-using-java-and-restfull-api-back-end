@@ -13,7 +13,13 @@ public enum Role {
     ADMIN("admin"),
 
     @SerializedName("courier")
-    COURIER("courier");
+    COURIER("courier"),
+
+    @SerializedName("guest")
+    GUEST("guest"),
+
+    @SerializedName("undefined")
+    UNDEFIENED("undefined");
 
     private final String value;
 
