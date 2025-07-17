@@ -72,8 +72,17 @@ public class UserDAO {
             stmt.setString(5, user.getRole().getValue());
             stmt.setString(6, user.getAddress());
             stmt.setBytes(7, user.getProfileImage());
-            stmt.setString(8, user.getBankInfo().getBankName());
-            stmt.setString(9, user.getBankInfo().getAccountNumber());
+
+            // ** FIX IS HERE: Add null check for optional BankInfo **
+            BankInfo bankInfo = user.getBankInfo();
+            if (bankInfo != null) {
+                stmt.setString(8, bankInfo.getBankName());
+                stmt.setString(9, bankInfo.getAccountNumber());
+            } else {
+                stmt.setNull(8, java.sql.Types.VARCHAR);
+                stmt.setNull(9, java.sql.Types.VARCHAR);
+            }
+
             stmt.executeUpdate();
             return true;
         }
@@ -91,20 +100,22 @@ public class UserDAO {
             stmt.setString(5, user.getRole().getValue());
             stmt.setString(6, user.getAddress());
             stmt.setBytes(7, user.getProfileImage());
-            stmt.setString(8, user.getBankInfo().getBankName());
-            stmt.setString(9, user.getBankInfo().getAccountNumber());
+
+            BankInfo bankInfo = user.getBankInfo();
+            if (bankInfo != null) {
+                stmt.setString(8, bankInfo.getBankName());
+                stmt.setString(9, bankInfo.getAccountNumber());
+            } else {
+                stmt.setNull(8, java.sql.Types.VARCHAR);
+                stmt.setNull(9, java.sql.Types.VARCHAR);
+            }
+
             stmt.setString(10, ConfirmStatus.PENDING.name());
             stmt.executeUpdate();
             return true;
         }
     }
 
-    /**
-     * Finds a user by their ID (primary key).
-     * @param userId The ID of the user to find.
-     * @return The User object, or null if not found.
-     * @throws SQLException if a database error occurs.
-     */
     public User findUserById(int userId) throws SQLException {
         String sql = "SELECT * FROM users WHERE id = ?";
         try (Connection conn = DatabaseManager.getConnection();
@@ -128,8 +139,6 @@ public class UserDAO {
     }
 
     public User findUserByPhoneAndPassword(String phone, String password) throws SQLException {
-        // This method is now only used for login credential check, not for general fetching.
-        // It's kept separate from findUserByPhone for clarity.
         String sql = "SELECT * FROM users WHERE phone = ?";
         try (Connection conn = DatabaseManager.getConnection();
              PreparedStatement stmt = conn.prepareStatement(sql)) {
@@ -238,8 +247,12 @@ public class UserDAO {
         user.setAddress(rs.getString("address"));
         user.setProfileImage(rs.getBytes("profile_image"));
 
-        BankInfo bankInfo = new BankInfo(rs.getString("bank_name"), rs.getString("account_number"));
-        user.setBankInfo(bankInfo);
+        String bankName = rs.getString("bank_name");
+        String accountNumber = rs.getString("account_number");
+        if (bankName != null && accountNumber != null) {
+            BankInfo bankInfo = new BankInfo(bankName, accountNumber);
+            user.setBankInfo(bankInfo);
+        }
 
         Role role = null;
         for (Role r : Role.values()) {
