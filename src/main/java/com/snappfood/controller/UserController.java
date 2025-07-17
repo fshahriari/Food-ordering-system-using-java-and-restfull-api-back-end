@@ -33,7 +33,7 @@ public class UserController {
     public Map<String, Object> handleGetProfile(Integer userId) throws SQLException, ResourceNotFoundException, TooManyRequestsException, InvalidInputException, ForbiddenException, UnauthorizedException, ConflictException {
         //401
         if (userId == null) {
-            throw new UnauthorizedException("Authentication token is required or invalid.");
+            throw new UnauthorizedException("Invalid token or user not authenticated.");
         }
 
         //400
@@ -131,13 +131,13 @@ public class UserController {
         }
 
         if (user.getPhone() == null || !user.getPhone().matches("^[0-9]{10,15}$")) {
-            throw new InvalidInputException("Invalid phone number");
+            throw new InvalidInputException("Invalid phone_number");
         }
         if (user.getPassword() == null || user.getPassword().trim().isEmpty()) {
             throw new InvalidInputException("Invalid password");
         }
         if (user.getName() == null || user.getName().trim().isEmpty()) {
-            throw new InvalidInputException("Invalid full name");
+            throw new InvalidInputException("Invalid full_name");
         }
         if (user.getAddress() != null && !user.getAddress().matches("^[\\p{L}\\p{N}\\s,.-]{0,200}$")) {
             throw new InvalidInputException("Invalid address");
