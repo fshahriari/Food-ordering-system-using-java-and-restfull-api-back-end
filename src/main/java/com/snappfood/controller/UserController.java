@@ -246,9 +246,9 @@ public class UserController {
         if (user.getEmail() != null && !user.getEmail().isEmpty() && !EMAIL_PATTERN.matcher(user.getEmail()).matches()) {
             throw new InvalidInputException("Invalid email");
         }
-        if (user.getAddress() != null
+        if ( (user.getAddress() != null &&  !(user.getRole().equals(Role.SELLER) || user.getRole().equals(Role.CUSTOMER)))
                 || !user.getAddress().matches("^[\\p{L}\\p{N}\\s,.-]{0,200}$")
-                || user.getAddress().trim().length() < 5) {
+                || user.getAddress().trim().length() < 3) {
             throw new InvalidInputException("Invalid address");
         }
         if (user.getRole() == null || user.getRole().equals("undefined")
