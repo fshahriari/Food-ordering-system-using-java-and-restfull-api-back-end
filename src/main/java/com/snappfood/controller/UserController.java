@@ -2,6 +2,7 @@ package com.snappfood.controller;
 
 import com.snappfood.dao.UserDAO;
 import com.snappfood.exception.*;
+import com.snappfood.model.BankInfo;
 import com.snappfood.model.Role;
 import com.snappfood.model.User;
 import com.snappfood.server.SessionRegistry;
@@ -11,12 +12,114 @@ import java.sql.SQLException;
 import java.sql.Timestamp;
 import java.util.HashMap;
 import java.util.Map;
+import javax.imageio.ImageIO;
+import java.awt.image.BufferedImage;
+import java.io.ByteArrayInputStream;
+import java.util.Base64;
+import java.util.regex.Pattern;
 
 public class UserController {
 
     private final UserDAO userDAO = new UserDAO();
     private static final int MAX_FAILED_ATTEMPTS = 5;
     private static final int LOCK_TIME_IN_MINUTES = 1;
+
+    private static final Pattern EMAIL_PATTERN = Pattern.compile(
+            "^[a-zA-Z0-9_+&*-]+(?:\\.[a-zA-Z0-9_+&*-]+)*@(?:[a-zA-Z0-9-]+\\.)+[a-zA-Z]{2,7}$");
+
+    private boolean isValidImage(byte[] imageBytes) {
+        if (imageBytes == null || imageBytes.length == 0) {
+            return false;
+        }
+        try {
+            ByteArrayInputStream bis = new ByteArrayInputStream(imageBytes);
+            BufferedImage image = ImageIO.read(bis);
+            if (image == null) {
+                return false;
+            }
+            return true;
+        } catch (Exception e) {
+            return false;
+        }
+    }
+
+    /**
+     * Handles the logic for updating a user's profile.
+     * @param userId The ID of the authenticated user.
+     * @param updatedData A User object containing the new data from the request.
+     * @return A map with a success message and the updated user object.
+     * @throws Exception for various error conditions.
+     */
+    public Map<String, Object> handleUpdateProfile(Integer userId, User updatedData) throws Exception {
+        if (userId == null) {
+            throw new UnauthorizedException("Invalid token");
+        }
+
+        User existingUser = userDAO.findUserById(userId);
+        if (existingUser == null) {
+            throw new ResourceNotFoundException("User profile not found.");
+        }
+
+        if (updatedData.getName() != null && !updatedData.getName().trim().isEmpty()) {
+            existingUser.setName(updatedData.getName());
+        }
+        if (updatedData.getEmail() != null) {
+            if (!EMAIL_PATTERN.matcher(updatedData.getEmail()).matches()) {
+                throw new InvalidInputException("Invalid email");
+            }
+            existingUser.setEmail(updatedData.getEmail());
+        }
+        if (updatedData.getAddress() != null && !updatedData.getAddress().trim().isEmpty()) {
+            if (!updatedData.getAddress().matches("^[\\p{L}\\p{N}\\s,.-]{0,200}$") || updatedData.getAddress().trim().length() < 5) {
+                throw new InvalidInputException("Invalid address");
+            }
+            existingUser.setAddress(updatedData.getAddress());
+        }
+        if (updatedData.getProfileImage() != null) {
+            if (updatedData.getProfileImage() != null) {
+                if (!isValidImage(updatedData.getProfileImage())) {
+                    throw new InvalidInputException("Invalid or corrupted image file");
+                }
+                existingUser.setProfileImage(updatedData.getProfileImage());
+            }
+            existingUser.setProfileImage(updatedData.getProfileImage());
+        }
+        if (updatedData.getBankInfo() != null) {
+            if (existingUser.getRole() != Role.SELLER && existingUser.getRole() != Role.COURIER) {
+                throw new ForbiddenException("Bank info can only be set for sellers and couriers.");
+            }
+            BankInfo bankInfo = updatedData.getBankInfo();
+            if (bankInfo.getBankName() == null || bankInfo.getBankName().matches("^[0-9]+$")) {
+                throw new InvalidInputException("Invalid bank_name");
+            }
+            if (bankInfo.getAccountNumber() == null || !bankInfo.getAccountNumber().matches("^[0-9]+$")) {
+                throw new InvalidInputException("Invalid account_number");
+            }
+            existingUser.setBankInfo(bankInfo);
+        }
+        if (updatedData.getPhone() != null && !updatedData.getPhone().trim().isEmpty()) {
+            if (userDAO.findUserByPhone(updatedData.getPhone()) != null) {
+                throw new ConflictException("Phone number already in use.");
+            }
+            existingUser.setPhone(updatedData.getPhone());
+        }
+
+        if (userDAO.isUserPending(updatedData.getPhone())) {
+            throw new ForbiddenException("User account is pending approval and cannot be updated.");
+        }
+
+
+        boolean success = userDAO.updateUser(existingUser);
+        if (!success) {
+            throw new InternalServerErrorException("Failed to update user profile.");
+        }
+
+        Map<String, Object> response = new HashMap<>();
+        response.put("status", 200);
+        response.put("message", "Profile updated successfully.");
+        response.put("user", existingUser); // Return the updated user object
+        return response;
+    }
 
     /**
      * Handles all logic for fetching a user profile, including authentication and error checking.
@@ -139,6 +242,9 @@ public class UserController {
         }
         if (user.getName() == null || user.getName().trim().isEmpty()) {
             throw new InvalidInputException("Invalid full_name");
+        }
+        if (user.getEmail() != null && !user.getEmail().isEmpty() && !EMAIL_PATTERN.matcher(user.getEmail()).matches()) {
+            throw new InvalidInputException("Invalid email");
         }
         if (user.getAddress() != null
                 || !user.getAddress().matches("^[\\p{L}\\p{N}\\s,.-]{0,200}$")

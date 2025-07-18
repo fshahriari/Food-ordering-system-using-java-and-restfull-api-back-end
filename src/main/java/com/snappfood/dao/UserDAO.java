@@ -268,4 +268,31 @@ public class UserDAO {
 
         return user;
     }
+
+    public boolean updateUser(User user) throws SQLException {
+        String sql = "UPDATE users SET full_name = ?, phone = ?, email = ?, address = ?, profile_image = ?, bank_name = ?, account_number = ? WHERE id = ?";
+        try (Connection conn = DatabaseManager.getConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+
+            stmt.setString(1, user.getName());
+            stmt.setString(2, user.getPhone());
+            stmt.setString(3, user.getEmail());
+            stmt.setString(4, user.getAddress());
+            stmt.setBytes(5, user.getProfileImage());
+
+            BankInfo bankInfo = user.getBankInfo();
+            if (bankInfo != null) {
+                stmt.setString(6, bankInfo.getBankName());
+                stmt.setString(7, bankInfo.getAccountNumber());
+            } else {
+                stmt.setNull(6, java.sql.Types.VARCHAR);
+                stmt.setNull(7, java.sql.Types.VARCHAR);
+            }
+
+            stmt.setInt(8, user.getId());
+
+            int rowsAffected = stmt.executeUpdate();
+            return rowsAffected > 0;
+        }
+    }
 }

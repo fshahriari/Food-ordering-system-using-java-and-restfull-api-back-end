@@ -144,9 +144,11 @@ public class RequestHandler implements Runnable {
                             responseMap = userController.handleLogin(loginData.get("phone"), loginData.get("password"));
                         } else if (path.equals("/auth/profile") && method.equals("GET")) {
                             responseMap = userController.handleGetProfile(userId);
+                        } else if (path.equals("/auth/profile") && method.equals("PUT")) {
+                            User updatedData = gson.fromJson(body, User.class);
+                            responseMap = userController.handleUpdateProfile(userId, updatedData);
                         }
                         break;
-
                     default:
                         statusCode = 404;
                         responseMap = Map.of("error", "Resource not found");
