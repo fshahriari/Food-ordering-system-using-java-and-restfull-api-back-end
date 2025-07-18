@@ -121,8 +121,9 @@ public class RequestHandler implements Runnable {
                 }
 
                 Integer userId = null;
+                String token = null;
                 if (headers.containsKey("Authorization")) {
-                    String token = headers.get("Authorization").replace("Bearer ", "");
+                    token = headers.get("Authorization").replace("Bearer ", "");
                     userId = SessionRegistry.getUserIdFromToken(token);
                 }
 
@@ -147,6 +148,8 @@ public class RequestHandler implements Runnable {
                         } else if (path.equals("/auth/profile") && method.equals("PUT")) {
                             User updatedData = gson.fromJson(body, User.class);
                             responseMap = userController.handleUpdateProfile(userId, updatedData);
+                        } else if (path.equals("/auth/logout") && method.equals("POST")) {
+                            responseMap = userController.handleLogout(token);
                         }
                         break;
                     default:

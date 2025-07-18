@@ -12,6 +12,7 @@ import java.sql.SQLException;
 import java.sql.Timestamp;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import javax.imageio.ImageIO;
 import java.awt.image.BufferedImage;
 import java.io.ByteArrayInputStream;
@@ -23,6 +24,11 @@ public class UserController {
     private final UserDAO userDAO = new UserDAO();
     private static final int MAX_FAILED_ATTEMPTS = 5;
     private static final int LOCK_TIME_IN_MINUTES = 1;
+
+    private static final int MAX_LOGOUT_REQUESTS = 5;
+    private static final long LOGOUT_RATE_LIMIT_WINDOW_MS = 60000; // 1 minute
+    private final Map<Integer, LogoutRequestTracker> logoutRequestTrackers = new ConcurrentHashMap<>();
+
 
     private static final Pattern EMAIL_PATTERN = Pattern.compile(
             "^[a-zA-Z0-9_+&*-]+(?:\\.[a-zA-Z0-9_+&*-]+)*@(?:[a-zA-Z0-9-]+\\.)+[a-zA-Z]{2,7}$");
@@ -312,6 +318,85 @@ public class UserController {
             return response;
         } else {
             throw new InternalServerErrorException("Failed to create user due to a database error.");
+        }
+    }
+
+    /**
+     * Handles the logic for logging out a user.
+     * @param token The session token of the user.
+     * @return A map with a success message.
+     * @throws UnauthorizedException if the token is missing or invalid.
+     * @throws TooManyRequestsException if the user exceeds the logout rate limit.
+     * @throws ForbiddenException if the user is not in a state that allows logging out.
+     */
+    public Map<String, Object> handleLogout(String token) throws UnauthorizedException, TooManyRequestsException, ForbiddenException, SQLException, ResourceNotFoundException, InvalidInputException, ConflictException {
+        //404
+        if (token == null || token.isEmpty()) {
+            throw new ResourceNotFoundException("No token provided.");
+        }
+
+        //401
+        Integer userId = SessionRegistry.getUserIdFromToken(token);
+        if (userId == null) {
+            throw new UnauthorizedException("not authenticated");
+        }
+
+        //400
+        if (userId <= 0) {
+            throw new InvalidInputException("Invalid user ID from token");
+        }
+
+        //429
+        logoutRequestTrackers.computeIfAbsent(userId, k -> new LogoutRequestTracker());
+        LogoutRequestTracker tracker = logoutRequestTrackers.get(userId);
+        if (!tracker.allowRequest()) {
+            throw new TooManyRequestsException("Too many logout requests. Please try again later.");
+        }
+
+
+        //403
+        User user = userDAO.findUserById(userId);
+        if (user != null && userDAO.isUserPending(user.getPhone())) {
+            throw new ForbiddenException("User account is pending and cannot log out.");
+        }
+
+        //409
+        if (!SessionRegistry.isUserActive(userId)) {
+            throw new ConflictException("User is not currently logged in.");
+        }
+
+        SessionRegistry.invalidateSession(token);
+
+        Map<String, Object> response = new HashMap<>();
+        response.put("status", 200);
+        response.put("message", "User logged out successfully.");
+        return response;
+    }
+
+    private static class LogoutRequestTracker {
+        private int requestCount;
+        private long windowStartTime;
+
+        public LogoutRequestTracker() {
+            this.requestCount = 0;
+            this.windowStartTime = System.currentTimeMillis();
+        }
+
+        public synchronized boolean allowRequest() {
+            long currentTime = System.currentTimeMillis();
+            if (currentTime - windowStartTime > LOGOUT_RATE_LIMIT_WINDOW_MS) {
+                // Reset window
+                windowStartTime = currentTime;
+                requestCount = 1;
+                return true;
+            }
+
+            if (requestCount < MAX_LOGOUT_REQUESTS) {
+                requestCount++;
+                return true;
+            }
+
+            return false;
         }
     }
 }

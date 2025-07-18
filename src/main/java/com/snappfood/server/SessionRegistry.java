@@ -49,4 +49,16 @@ public class SessionRegistry {
     public static boolean isUserActive(int userId) {
         return userIdToToken.containsKey(userId);
     }
+
+    /**
+     * Invalidates a session by removing the token.
+     *
+     * @param token The session token to invalidate.
+     */
+    public static void invalidateSession(String token) {
+        Integer userId = activeSessions.remove(token); // Remove token from activeSessions
+        if (userId != null) {
+            userIdToToken.remove(userId); // Remove user from userIdToToken
+        }
+    }
 }
