@@ -8,8 +8,10 @@ import com.snappfood.exception.*;
 import com.snappfood.model.User;
 
 import java.io.IOException;
+import java.net.URLDecoder;
 import java.nio.ByteBuffer;
 import java.nio.channels.SocketChannel;
+import java.nio.charset.StandardCharsets;
 import java.sql.SQLException;
 import java.util.Collections;
 import java.util.HashMap;
@@ -47,14 +49,46 @@ public class RequestHandler implements Runnable {
         }
     }
 
+    private Map<String, String> parseQueryParams(String query) {
+        if (query == null || query.isEmpty()) {
+            return Collections.emptyMap();
+        }
+        Map<String, String> queryParams = new HashMap<>();
+        String[] pairs = query.split("&");
+        for (String pair : pairs) {
+            int idx = pair.indexOf("=");
+            try {
+                String key = idx > 0 ? URLDecoder.decode(pair.substring(0, idx), StandardCharsets.UTF_8.name()) : pair;
+                String value = idx > 0 && pair.length() > idx + 1 ? URLDecoder.decode(pair.substring(idx + 1), StandardCharsets.UTF_8.name()) : null;
+                queryParams.put(key, value);
+            } catch (Exception e) {
+                //ignoring malformed parameters
+            }
+        }
+        return queryParams;
+    }
+
     @Override
     public void run() {
         String httpResponse;
         try {
             String[] requestLines = request.split("\r\n");
+            if (requestLines.length == 0) {
+                throw new InvalidInputException("Invalid request");
+            }
+
             String[] requestLine = requestLines[0].split(" ");
+            if (requestLine.length < 2) {
+                throw new InvalidInputException("Malformed request line");
+            }
             String method = requestLine[0];
-            String path = requestLine[1];
+            String fullPath = requestLine[1];
+
+            String[] pathParts = fullPath.split("\\?", 2);
+            String path = pathParts[0];
+            String query = pathParts.length > 1 ? pathParts[1] : "";
+            Map<String, String> queryParams = parseQueryParams(query);
+
 
             Map<String, String> headers = new HashMap<>();
             String body = "";
@@ -65,7 +99,7 @@ public class RequestHandler implements Runnable {
                         isHeaderSection = false;
                         continue;
                     }
-                    String[] headerParts = requestLines[i].split(": ");
+                    String[] headerParts = requestLines[i].split(": ", 2);
                     if (headerParts.length == 2) {
                         headers.put(headerParts[0], headerParts[1]);
                     }
@@ -92,15 +126,21 @@ public class RequestHandler implements Runnable {
                     userId = SessionRegistry.getUserIdFromToken(token);
                 }
 
-                String[] pathParts = path.split("/");
+                String[] pathSegments = path.split("/");
 
-                switch (pathParts[1]) {
+                switch (pathSegments[1]) {
                     case "auth":
                         if (path.equals("/auth/register") && method.equals("POST")) {
                             User userToRegister = gson.fromJson(body, User.class);
                             responseMap = userController.handleSignup(userToRegister);
                         } else if (path.equals("/auth/login") && method.equals("POST")) {
                             Map<String, String> loginData = gson.fromJson(body, Map.class);
+                            if (loginData == null || loginData.get("phone") == null) {
+                                throw new InvalidInputException("Invalid phone");
+                            }
+                            if (loginData.get("password") == null) {
+                                throw new InvalidInputException("Invalid password");
+                            }
                             responseMap = userController.handleLogin(loginData.get("phone"), loginData.get("password"));
                         } else if (path.equals("/auth/profile") && method.equals("GET")) {
                             responseMap = userController.handleGetProfile(userId);
@@ -170,9 +210,9 @@ public class RequestHandler implements Runnable {
             e.printStackTrace();
         }
 
-//        System.out.println("--- SERVER RESPONSE ---");
-//        System.out.println(httpResponse);
-//        System.out.println("-----------------------");
+        System.out.println("--- SERVER RESPONSE ---");
+        System.out.println(httpResponse);
+        System.out.println("-----------------------");
 
         try {
             ByteBuffer responseBuffer = ByteBuffer.wrap(httpResponse.getBytes());

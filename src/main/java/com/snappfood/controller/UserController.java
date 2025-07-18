@@ -72,8 +72,6 @@ public class UserController {
     }
 
     public Map<String, Object> handleLogin(String phone, String password) throws Exception {
-        User user = userDAO.findUserByPhone(phone);
-
         //400
         if (phone == null || !phone.matches("^[0-9]{10,15}$")) {
             throw new InvalidInputException("Invalid phone number");
@@ -84,6 +82,8 @@ public class UserController {
         if (password.trim().isEmpty()) {
             throw new InvalidInputException("Invalid password");
         }
+
+        User user = userDAO.findUserByPhone(phone);
 
         //404
         if (user == null) {
@@ -101,8 +101,6 @@ public class UserController {
         if (user.getLockTime() != null && user.getLockTime().after(new Timestamp(System.currentTimeMillis()))) {
             throw new TooManyRequestsException("Too many requests - Account is locked");
         }
-
-
 
         //401 n 403
         if (!BCrypt.checkpw(password, user.getPassword())) {
