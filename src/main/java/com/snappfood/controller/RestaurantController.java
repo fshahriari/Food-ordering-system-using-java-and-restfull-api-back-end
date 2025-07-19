@@ -2,10 +2,7 @@ package com.snappfood.controller;
 
 import com.snappfood.dao.RestaurantDAO;
 import com.snappfood.dao.UserDAO;
-import com.snappfood.exception.ForbiddenException;
-import com.snappfood.exception.InvalidInputException;
-import com.snappfood.exception.TooManyRequestsException;
-import com.snappfood.exception.UnauthorizedException;
+import com.snappfood.exception.*;
 import com.snappfood.model.Food;
 import com.snappfood.model.Restaurant;
 import com.snappfood.model.Role;
@@ -13,6 +10,7 @@ import com.snappfood.model.User;
 
 import java.sql.SQLException;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -28,36 +26,26 @@ public class RestaurantController {
     private static final long CREATION_RATE_LIMIT_WINDOW_MS = 3600000;
     private final Map<Integer, RequestTracker> restaurantCreationTrackers = new ConcurrentHashMap<>();
 
-    /**
-     * Handles the creation of a new restaurant by a seller.
-     * @param restaurant The restaurant object from the request.
-     * @param sellerId The ID of the authenticated seller.
-     * @return A map containing the response data.
-     * @throws Exception for validation, authorization, or database errors.
-     */
+    private static final int MAX_FETCH_RESTAURANTS_REQUESTS = 20;
+    private static final long FETCH_RATE_LIMIT_WINDOW_MS = 60000;
+    private final Map<Integer, RequestTracker> fetchRestaurantsTrackers = new ConcurrentHashMap<>();
+
+
     public Map<String, Object> handleCreateRestaurant(Restaurant restaurant, Integer sellerId) throws Exception {
-        //401
         if (sellerId == null) {
             throw new UnauthorizedException("You must be logged in to create a restaurant.");
         }
-
-        //429
-        RequestTracker tracker = restaurantCreationTrackers.computeIfAbsent(sellerId, k -> new RequestTracker());
+        RequestTracker tracker = restaurantCreationTrackers.computeIfAbsent(sellerId, k -> new RequestTracker(MAX_RESTAURANT_CREATION_REQUESTS, CREATION_RATE_LIMIT_WINDOW_MS));
         if (!tracker.allowRequest()) {
             throw new TooManyRequestsException("You have made too many restaurant creation requests. Please try again later.");
         }
-
         User seller = userDAO.findUserById(sellerId);
-
-        //403
         if (seller == null || seller.getRole() != Role.SELLER) {
             throw new ForbiddenException("Only users with the 'seller' role can create restaurants.");
         }
         if (userDAO.isUserPending(seller.getPhone())) {
             throw new ForbiddenException("Your seller account is pending approval. You cannot create a restaurant yet.");
         }
-
-        //400
         if (restaurant.getName() == null || restaurant.getName().trim().isEmpty()) {
             throw new InvalidInputException("Restaurant name is required.");
         }
@@ -70,25 +58,12 @@ public class RestaurantController {
         if (restaurant.getTaxFee() < 0 || restaurant.getAdditionalFee() < 0) {
             throw new InvalidInputException("Fees cannot be negative.");
         }
-        if (restaurant.getCategory() == null || restaurant.getCategory().trim().isEmpty()) {
-            throw new InvalidInputException("Category is required.");
-        }
-        if (restaurant.getWorkingHours() == null || restaurant.getWorkingHours().trim().isEmpty()) {
-            throw new InvalidInputException("WorkingHours is required.");
-        }
-        if (!GenerallController.isValidImage(restaurant.getLogoBase64())) {
-            throw new InvalidInputException("Logo is not a valid image.");
-        }
-
-        //409 -> sql exception
         int pendingRestaurantId = restaurantDAO.createPendingRestaurant(restaurant);
         restaurant.setId(pendingRestaurantId);
-
         Map<String, Object> response = new HashMap<>();
         response.put("status", 201);
         response.put("message", "Restaurant registration request submitted successfully. Waiting for admin approval.");
         response.put("restaurant", restaurant);
-
         return response;
     }
 
@@ -99,40 +74,76 @@ public class RestaurantController {
      * @throws Exception for authorization or database errors.
      */
     public Map<String, Object> handleGetMyRestaurants(Integer sellerId) throws Exception {
-        // TODO: 1. Verify the sellerId is valid.
-        // TODO: 2. Fetch the user to get their phone number.
-        // TODO: 3. Use restaurantDAO.getRestaurantsBySellerPhoneNumber() to get the list.
-        // TODO: 4. Return the list of restaurants.
-        return null; // Placeholder
+        //401
+        if (sellerId == null) {
+            throw new UnauthorizedException("You must be logged in to view your restaurants.");
+        }
+
+        //429
+        RequestTracker tracker = fetchRestaurantsTrackers.computeIfAbsent(sellerId, k -> new RequestTracker(MAX_FETCH_RESTAURANTS_REQUESTS, FETCH_RATE_LIMIT_WINDOW_MS));
+        if (!tracker.allowRequest()) {
+            throw new TooManyRequestsException("Too many requests. Please try again later.");
+        }
+
+        // Fetch user for authorization
+        User seller = userDAO.findUserById(sellerId);
+
+        //404
+        if (seller == null) {
+            throw new ResourceNotFoundException("The specified seller account does not exist.");
+        }
+
+        //403
+        if (seller.getRole() != Role.SELLER) {
+            throw new ForbiddenException("Only users with the 'seller' role can view their restaurants.");
+        }
+        if (userDAO.isUserPending(seller.getPhone())) {
+            throw new ForbiddenException("Your seller account is pending approval.");
+        }
+
+        List<Restaurant> restaurants = restaurantDAO.getRestaurantsBySellerPhoneNumber(seller.getPhone());
+
+        Map<String, Object> response = new HashMap<>();
+        response.put("status", 200);
+        response.put("restaurants", restaurants);
+        return response;
     }
 
-    /**
-     * Handles adding a new food item to a restaurant's menu.
-     * @param restaurantId The ID of the restaurant to add the food to.
-     * @param food The food item from the request.
-     * @param supply The supply count for this food item in this specific restaurant.
-     * @param sellerId The ID of the authenticated seller.
-     * @return A map containing the newly created food item.
-     * @throws Exception for validation, authorization, or database errors.
-     */
     public Map<String, Object> handleAddFoodItem(Integer restaurantId, Food food, int supply, Integer sellerId) throws Exception {
-        // TODO: 1. Validate the incoming food data (name, price, etc.).
-        // TODO: 2. Verify the seller owns the restaurant with restaurantId.
-        // TODO: 3. Use restaurantDAO.addFoodItem() to create the food and add it to the menu.
-        // TODO: 4. Return the created food item with its new ID.
+        // TODO: Implement logic
         return null; // Placeholder
     }
 
-    /**
-     * Handles fetching the menu for a specific restaurant.
-     * @param restaurantId The ID of the restaurant.
-     * @return A map containing the list of food items on the menu.
-     * @throws Exception if the restaurant is not found or a database error occurs.
-     */
     public Map<String, Object> handleGetRestaurantMenu(Integer restaurantId) throws Exception {
-        // TODO: 1. Validate restaurantId.
-        // TODO: 2. Use restaurantDAO.getMenuForRestaurant() to fetch the menu.
-        // TODO: 3. Return the menu list.
+        // TODO: Implement logic
         return null; // Placeholder
+    }
+
+    private static class RequestTracker {
+        private int requestCount;
+        private long windowStartTime;
+        private final int maxRequests;
+        private final long windowMs;
+
+        public RequestTracker(int maxRequests, long windowMs) {
+            this.maxRequests = maxRequests;
+            this.windowMs = windowMs;
+            this.requestCount = 0;
+            this.windowStartTime = System.currentTimeMillis();
+        }
+
+        public synchronized boolean allowRequest() {
+            long currentTime = System.currentTimeMillis();
+            if (currentTime - windowStartTime > windowMs) {
+                windowStartTime = currentTime;
+                requestCount = 1;
+                return true;
+            }
+            if (requestCount < maxRequests) {
+                requestCount++;
+                return true;
+            }
+            return false;
+        }
     }
 }

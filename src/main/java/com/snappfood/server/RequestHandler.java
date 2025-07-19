@@ -164,6 +164,11 @@ public class RequestHandler implements Runnable {
                             if (responseMap.containsKey("status")) {
                                 statusCode = (int) responseMap.get("status");
                             }
+                        } else if (path.equals("/restaurants/mine") && method.equals("GET")) {
+                            responseMap = restaurantController.handleGetMyRestaurants(userId);
+                            if (responseMap.containsKey("status")) {
+                                statusCode = (int) responseMap.get("status");
+                            }
                         }
                         break;
 
