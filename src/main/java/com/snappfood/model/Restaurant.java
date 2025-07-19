@@ -30,6 +30,12 @@ public class Restaurant {
 
     private String category;
 
+    @SerializedName("tax_fee")
+    private final int taxFee;
+
+    @SerializedName("additional_fee")
+    private final int additionalFee;
+
     //TODO This is for in-memory representation; how it's stored in the DB might differ.
     private Map<Food, Integer> menu;
 
@@ -53,8 +59,10 @@ public class Restaurant {
      * @param category The category of food the restaurant serves.
      * @param menu A map representing the menu, with Food items and their counts.
      * @param sellerPhoneNumbers A list of phone numbers for the sellers who own the restaurant.
+     * @param additionalFee the additional fee for each order of the restaurant
+     * @param taxFee the constant fee for each order of the restaurant
      */
-    public Restaurant(int id, String name, String logoBase64, String address, String phoneNumber, String workingHours, String category, Map<Food, Integer> menu, List<String> sellerPhoneNumbers) {
+    public Restaurant(int id, String name, String logoBase64, String address, String phoneNumber, String workingHours, String category, int taxFee, int additionalFee, Map<Food, Integer> menu, List<String> sellerPhoneNumbers) {
         this.id = id;
         this.name = name;
         this.logoBase64 = logoBase64;
@@ -62,6 +70,8 @@ public class Restaurant {
         this.phoneNumber = phoneNumber;
         this.workingHours = workingHours;
         this.category = category;
+        this.taxFee = taxFee;
+        this.additionalFee = additionalFee;
         this.menu = menu;
         this.sellerPhoneNumbers = sellerPhoneNumbers;
     }
