@@ -44,7 +44,9 @@ public class Restaurant {
     /**
      * Default constructor.
      */
-    public Restaurant() {
+    public Restaurant(int taxFee, int additionalFee) {
+        this.taxFee = taxFee;
+        this.additionalFee = additionalFee;
     }
 
     /**

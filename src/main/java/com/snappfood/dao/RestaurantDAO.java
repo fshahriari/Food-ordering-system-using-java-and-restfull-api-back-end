@@ -216,7 +216,7 @@ public class RestaurantDAO {
     }
 
     private Restaurant extractRestaurantFromResultSet(ResultSet rs) throws SQLException {
-        Restaurant restaurant = new Restaurant();
+        Restaurant restaurant = new Restaurant(rs.getInt("tax_fee"), rs.getInt("additional_fee"));
         restaurant.setId(rs.getInt("id"));
         restaurant.setName(rs.getString("name"));
         restaurant.setLogoBase64(rs.getString("logo_base64"));
