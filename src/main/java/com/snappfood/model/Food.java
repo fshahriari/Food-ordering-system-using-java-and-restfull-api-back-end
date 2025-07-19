@@ -5,7 +5,7 @@ import java.util.List;
 
 /**
  * Represents a food item available in a restaurant.
- * This class maps directly to the 'food_item' schema in the aut_food.yaml API specification.
+ * A food item has one category, and its supply is managed by the restaurant's menu.
  */
 public class Food {
 
@@ -27,11 +27,10 @@ public class Food {
     @SerializedName("price")
     private int price;
 
-    @SerializedName("supply")
-    private int supply;
+    @SerializedName("category")
+    private String category;
 
-    @SerializedName("categories")
-    private List<String> categories;
+    private int supply;
 
     /**
      * Default constructor.
@@ -40,26 +39,24 @@ public class Food {
     }
 
     /**
-     * Constructs a new Food item with all its properties.
+     * Constructs a new Food item with its core properties.
      *
      * @param id The unique identifier for the food item.
      * @param name The name of the food item.
      * @param imageBase64 The Base64 encoded image string.
      * @param description A brief description of the food item.
-     * @param restaurantId The ID of the restaurant this food item belongs to.
+     * @param restaurantId The ID of the restaurant this food item belongs to (for context).
      * @param price The price of the food item.
-     * @param supply The available quantity or supply of the food item.
-     * @param categories A list of categories or keywords associated with the food.
+     * @param category The category of the food item (e.g., "Fast Food").
      */
-    public Food(int id, String name, String imageBase64, String description, int restaurantId, int price, int supply, List<String> categories) {
+    public Food(int id, String name, String imageBase64, String description, int restaurantId, int price, String category) {
         this.id = id;
         this.name = name;
         this.imageBase64 = imageBase64;
         this.description = description;
         this.restaurantId = restaurantId;
         this.price = price;
-        this.supply = supply;
-        this.categories = categories;
+        this.category = category;
     }
 
 
@@ -111,19 +108,19 @@ public class Food {
         this.price = price;
     }
 
+    public String getCategory() {
+        return category;
+    }
+
+    public void setCategory(String category) {
+        this.category = category;
+    }
+
     public int getSupply() {
         return supply;
     }
 
     public void setSupply(int supply) {
         this.supply = supply;
-    }
-
-    public List<String> getCategories() {
-        return categories;
-    }
-
-    public void setCategories(List<String> categories) {
-        this.categories = categories;
     }
 }
