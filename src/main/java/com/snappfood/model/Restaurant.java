@@ -150,4 +150,13 @@ public class Restaurant {
     public void setSellerPhoneNumbers(List<String> sellerPhoneNumbers) {
         this.sellerPhoneNumbers = sellerPhoneNumbers;
     }
+
+    public int getTaxFee() {
+        return taxFee;
+    }
+
+    public int getAdditionalFee() {
+        return additionalFee;
+    }
+
 }

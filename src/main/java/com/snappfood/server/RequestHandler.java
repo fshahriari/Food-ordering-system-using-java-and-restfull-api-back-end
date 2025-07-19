@@ -3,8 +3,10 @@ package com.snappfood.server;
 import com.google.gson.Gson;
 import com.google.gson.JsonSyntaxException;
 import com.snappfood.controller.AdminController;
+import com.snappfood.controller.RestaurantController;
 import com.snappfood.controller.UserController;
 import com.snappfood.exception.*;
+import com.snappfood.model.Restaurant;
 import com.snappfood.model.User;
 
 import java.io.IOException;
@@ -23,6 +25,7 @@ public class RequestHandler implements Runnable {
     private final SocketChannel clientChannel;
     private final UserController userController;
     private final AdminController adminController;
+    private final RestaurantController restaurantController; // Added RestaurantController
     private final Gson gson;
 
     public RequestHandler(String request, SocketChannel clientChannel) {
@@ -30,6 +33,7 @@ public class RequestHandler implements Runnable {
         this.clientChannel = clientChannel;
         this.userController = new UserController();
         this.adminController = new AdminController();
+        this.restaurantController = new RestaurantController(); // Initialize it
         this.gson = new Gson();
     }
 
@@ -152,6 +156,17 @@ public class RequestHandler implements Runnable {
                             responseMap = userController.handleLogout(token);
                         }
                         break;
+
+                    case "restaurants":
+                        if (path.equals("/restaurants") && method.equals("POST")) {
+                            Restaurant newRestaurant = gson.fromJson(body, Restaurant.class);
+                            responseMap = restaurantController.handleCreateRestaurant(newRestaurant, userId);
+                            if (responseMap.containsKey("status")) {
+                                statusCode = (int) responseMap.get("status");
+                            }
+                        }
+                        break;
+
                     default:
                         statusCode = 404;
                         responseMap = Map.of("error", "Resource not found");

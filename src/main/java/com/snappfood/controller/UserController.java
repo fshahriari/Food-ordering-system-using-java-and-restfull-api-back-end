@@ -33,21 +33,6 @@ public class UserController {
     private static final Pattern EMAIL_PATTERN = Pattern.compile(
             "^[a-zA-Z0-9_+&*-]+(?:\\.[a-zA-Z0-9_+&*-]+)*@(?:[a-zA-Z0-9-]+\\.)+[a-zA-Z]{2,7}$");
 
-    private boolean isValidImage(byte[] imageBytes) {
-        if (imageBytes == null || imageBytes.length == 0) {
-            return false;
-        }
-        try {
-            ByteArrayInputStream bis = new ByteArrayInputStream(imageBytes);
-            BufferedImage image = ImageIO.read(bis);
-            if (image == null) {
-                return false;
-            }
-            return true;
-        } catch (Exception e) {
-            return false;
-        }
-    }
 
     /**
      * Handles the logic for updating a user's profile.
@@ -83,7 +68,7 @@ public class UserController {
         }
         if (updatedData.getProfileImage() != null) {
             if (updatedData.getProfileImage() != null) {
-                if (!isValidImage(updatedData.getProfileImage())) {
+                if (!GenerallController.isValidImage(updatedData.getProfileImage())) {
                     throw new InvalidInputException("Invalid or corrupted image file");
                 }
                 existingUser.setProfileImage(updatedData.getProfileImage());

@@ -2,12 +2,19 @@ package com.snappfood.controller;
 
 import com.snappfood.dao.RestaurantDAO;
 import com.snappfood.dao.UserDAO;
+import com.snappfood.exception.ForbiddenException;
+import com.snappfood.exception.InvalidInputException;
+import com.snappfood.exception.TooManyRequestsException;
+import com.snappfood.exception.UnauthorizedException;
 import com.snappfood.model.Food;
 import com.snappfood.model.Restaurant;
+import com.snappfood.model.Role;
 import com.snappfood.model.User;
 
 import java.sql.SQLException;
+import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Handles the business logic for restaurant and food-related operations.
@@ -17,6 +24,10 @@ public class RestaurantController {
     private final RestaurantDAO restaurantDAO = new RestaurantDAO();
     private final UserDAO userDAO = new UserDAO();
 
+    private static final int MAX_RESTAURANT_CREATION_REQUESTS = 3;
+    private static final long CREATION_RATE_LIMIT_WINDOW_MS = 3600000;
+    private final Map<Integer, RequestTracker> restaurantCreationTrackers = new ConcurrentHashMap<>();
+
     /**
      * Handles the creation of a new restaurant by a seller.
      * @param restaurant The restaurant object from the request.
@@ -25,11 +36,60 @@ public class RestaurantController {
      * @throws Exception for validation, authorization, or database errors.
      */
     public Map<String, Object> handleCreateRestaurant(Restaurant restaurant, Integer sellerId) throws Exception {
-        // TODO: 1. Validate the incoming restaurant data (name, address, etc.).
-        // TODO: 2. Verify that the user with sellerId is a valid seller.
-        // TODO: 3. Insert the restaurant into the 'pending_restaurants' table using restaurantDAO.
-        // TODO: 4. Return a success message indicating the request is pending approval.
-        return null; // Placeholder
+        //401
+        if (sellerId == null) {
+            throw new UnauthorizedException("You must be logged in to create a restaurant.");
+        }
+
+        //429
+        RequestTracker tracker = restaurantCreationTrackers.computeIfAbsent(sellerId, k -> new RequestTracker());
+        if (!tracker.allowRequest()) {
+            throw new TooManyRequestsException("You have made too many restaurant creation requests. Please try again later.");
+        }
+
+        User seller = userDAO.findUserById(sellerId);
+
+        //403
+        if (seller == null || seller.getRole() != Role.SELLER) {
+            throw new ForbiddenException("Only users with the 'seller' role can create restaurants.");
+        }
+        if (userDAO.isUserPending(seller.getPhone())) {
+            throw new ForbiddenException("Your seller account is pending approval. You cannot create a restaurant yet.");
+        }
+
+        //400
+        if (restaurant.getName() == null || restaurant.getName().trim().isEmpty()) {
+            throw new InvalidInputException("Restaurant name is required.");
+        }
+        if (restaurant.getAddress() == null || restaurant.getAddress().trim().isEmpty()) {
+            throw new InvalidInputException("Restaurant address is required.");
+        }
+        if (restaurant.getPhoneNumber() == null || !restaurant.getPhoneNumber().matches("^[0-9]{10,15}$")) {
+            throw new InvalidInputException("A valid phone number is required.");
+        }
+        if (restaurant.getTaxFee() < 0 || restaurant.getAdditionalFee() < 0) {
+            throw new InvalidInputException("Fees cannot be negative.");
+        }
+        if (restaurant.getCategory() == null || restaurant.getCategory().trim().isEmpty()) {
+            throw new InvalidInputException("Category is required.");
+        }
+        if (restaurant.getWorkingHours() == null || restaurant.getWorkingHours().trim().isEmpty()) {
+            throw new InvalidInputException("WorkingHours is required.");
+        }
+        if (!GenerallController.isValidImage(restaurant.getLogoBase64())) {
+            throw new InvalidInputException("Logo is not a valid image.");
+        }
+
+        //409 -> sql exception
+        int pendingRestaurantId = restaurantDAO.createPendingRestaurant(restaurant);
+        restaurant.setId(pendingRestaurantId);
+
+        Map<String, Object> response = new HashMap<>();
+        response.put("status", 201);
+        response.put("message", "Restaurant registration request submitted successfully. Waiting for admin approval.");
+        response.put("restaurant", restaurant);
+
+        return response;
     }
 
     /**
