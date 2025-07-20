@@ -3,7 +3,10 @@ package com.snappfood.controller;
 import com.snappfood.dao.RestaurantDAO;
 import com.snappfood.dao.UserDAO;
 import com.snappfood.exception.*;
-import com.snappfood.model.*;
+import com.snappfood.model.Food;
+import com.snappfood.model.Restaurant;
+import com.snappfood.model.Role;
+import com.snappfood.model.User;
 
 import java.sql.SQLException;
 import java.util.HashMap;
@@ -36,8 +39,9 @@ public class RestaurantController {
     private final Map<Integer, RequestTracker> updateRestaurantTrackers = new ConcurrentHashMap<>();
 
     private static final int MAX_UPDATE_FOOD_REQUESTS = 20;
-    private static final long UPDATE_FOOD_RATE_LIMIT_WINDOW_MS = 60000;
+    private static final long UPDATE_FOOD_RATE_LIMIT_WINDOW_MS = 60000; // 1 minute
     private final Map<Integer, RequestTracker> updateFoodItemTrackers = new ConcurrentHashMap<>();
+
 
     public Map<String, Object> handleCreateRestaurant(Restaurant restaurant, Integer sellerId) throws Exception {
         if (sellerId == null) {
@@ -93,10 +97,16 @@ public class RestaurantController {
         if (userDAO.isUserPending(seller.getPhone())) {
             throw new ForbiddenException("Your seller account is pending approval.");
         }
-        List<Restaurant> restaurants = restaurantDAO.getRestaurantsBySellerPhoneNumber(seller.getPhone());
+
+        List<Restaurant> approvedRestaurants = restaurantDAO.getRestaurantsBySellerPhoneNumber(seller.getPhone());
+        List<Restaurant> pendingRestaurants = restaurantDAO.getPendingRestaurantsBySellerPhoneNumber(seller.getPhone());
+
+
         Map<String, Object> response = new HashMap<>();
         response.put("status", 200);
-        response.put("restaurants", restaurants);
+        response.put("approved_restaurants", approvedRestaurants);
+        response.put("pending_restaurants", pendingRestaurants);
+
         return response;
     }
 
@@ -126,20 +136,20 @@ public class RestaurantController {
             throw new ForbiddenException("Only sellers can add food items.");
         }
 
+        if (restaurantDAO.isRestaurantPending(restaurantId)) {
+            throw new ForbiddenException("Cannot add food items to a restaurant that is pending approval.");
+        }
+
         // Ownership Check
         List<String> sellerPhoneNumbers = restaurantDAO.getSellersForRestaurant(restaurantId);
         if (!sellerPhoneNumbers.contains(seller.getPhone())) {
             throw new ForbiddenException("You do not have permission to modify this restaurant's menu.");
         }
 
-        //400 n 404 n 403
+        //400 n 404
         if (restaurantDAO.getRestaurantById(restaurantId) == null) {
             throw new ResourceNotFoundException("Restaurant with ID " + restaurantId + " not found.");
         }
-        if (restaurantDAO.getRestaurantById(restaurantId).getConfirmStatus() != ConfirmStatus.CONFIRMED) {
-            throw new ForbiddenException("This restaurant is not approved yet.");
-        }
-
         if (food.getName() == null || food.getName().trim().isEmpty()) {
             throw new InvalidInputException("Food name is required.");
         }
@@ -198,6 +208,10 @@ public class RestaurantController {
             throw new ForbiddenException("Only sellers can update restaurants.");
         }
 
+        if (restaurantDAO.isRestaurantPending(restaurantId)) {
+            throw new ForbiddenException("Cannot update a restaurant that is pending approval.");
+        }
+
         //404
         Restaurant existingRestaurant = restaurantDAO.getRestaurantById(restaurantId);
         if (existingRestaurant == null) {
@@ -207,9 +221,6 @@ public class RestaurantController {
         //403
         if (!existingRestaurant.getSellerPhoneNumbers().contains(seller.getPhone())) {
             throw new ForbiddenException("You do not have permission to update this restaurant.");
-        }
-        if (existingRestaurant.getConfirmStatus() != ConfirmStatus.CONFIRMED) {
-            throw new ForbiddenException("This restaurant is not approved yet.");
         }
 
         //400
@@ -266,44 +277,34 @@ public class RestaurantController {
      * @throws Exception for various error conditions.
      */
     public Map<String, Object> handleUpdateFoodItem(Integer restaurantId, Integer itemId, Food updatedFood, Integer sellerId) throws Exception {
-        //401
         if (sellerId == null) {
             throw new UnauthorizedException("You must be logged in to update a food item.");
         }
 
-        //409
         RequestTracker tracker = updateFoodItemTrackers.computeIfAbsent(sellerId, k -> new RequestTracker(MAX_UPDATE_FOOD_REQUESTS, UPDATE_FOOD_RATE_LIMIT_WINDOW_MS));
         if (!tracker.allowRequest()) {
             throw new TooManyRequestsException("You are updating food items too frequently. Please try again later.");
         }
 
-        //403
         User seller = userDAO.findUserById(sellerId);
         if (seller == null || seller.getRole() != Role.SELLER) {
             throw new ForbiddenException("Only sellers can update food items.");
         }
 
-        //400
         if (restaurantId <= 0 || itemId <= 0) {
             throw new InvalidInputException("Invalid restaurant or item ID.");
         }
-        if (updatedFood == null) {
-            throw new InvalidInputException("Updated food data cannot be null.");
+
+        if (restaurantDAO.isRestaurantPending(restaurantId)) {
+            throw new ForbiddenException("Cannot update food items for a restaurant that is pending approval.");
         }
 
-
-        //404
         Restaurant restaurant = restaurantDAO.getRestaurantById(restaurantId);
         if (restaurant == null) {
             throw new ResourceNotFoundException("Restaurant with ID " + restaurantId + " not found.");
         }
-
-        //403
         if (!restaurant.getSellerPhoneNumbers().contains(seller.getPhone())) {
             throw new ForbiddenException("You do not have permission to modify this restaurant's menu.");
-        }
-        if (restaurant.getConfirmStatus() != ConfirmStatus.CONFIRMED) {
-            throw new ForbiddenException("This restaurant is not approved yet.");
         }
 
         Food existingFood = restaurantDAO.getFoodItemById(itemId);
@@ -311,56 +312,32 @@ public class RestaurantController {
             throw new ResourceNotFoundException("Food item with ID " + itemId + " not found in this restaurant.");
         }
 
-        //400 n 409
         boolean isUpdated = false;
-        if (updatedFood.getName() != null && !updatedFood.getName().trim().isEmpty()) {
-            if (updatedFood.getName().equals(existingFood.getName())) {
-                throw new InvalidInputException("No changes detected in food name.");
-            }
+        if (updatedFood.getName() != null && !updatedFood.getName().trim().isEmpty() && !updatedFood.getName().equals(existingFood.getName())) {
+            // Check for name conflict before updating
             if (restaurantDAO.foodItemExistsByName(restaurantId, updatedFood.getName())) {
                 throw new ConflictException("A food item with this name already exists in this restaurant's menu.");
             }
             existingFood.setName(updatedFood.getName());
             isUpdated = true;
         }
-        if (updatedFood.getDescription() != null && !updatedFood.getDescription().trim().isEmpty()) {
-            if (updatedFood.getDescription().equals(existingFood.getDescription())) {
-                throw new InvalidInputException("No changes detected in food description.");
-            }
+        if (updatedFood.getDescription() != null && !updatedFood.getDescription().equals(existingFood.getDescription())) {
             existingFood.setDescription(updatedFood.getDescription());
             isUpdated = true;
         }
-        if (updatedFood.getPrice() >= 0) {
-            if (updatedFood.getPrice() == existingFood.getPrice()) {
-                throw new InvalidInputException("No changes detected in food price.");
-            }
+        if (updatedFood.getPrice() >= 0 && updatedFood.getPrice() != existingFood.getPrice()) {
             existingFood.setPrice(updatedFood.getPrice());
             isUpdated = true;
         }
-        if (updatedFood.getSupply() >= 0) {
-            if (updatedFood.getSupply() == existingFood.getSupply()) {
-                throw new InvalidInputException("No changes detected in food supply.");
-            }
+        if (updatedFood.getSupply() >= 0 && updatedFood.getSupply() != existingFood.getSupply()) {
             existingFood.setSupply(updatedFood.getSupply());
             isUpdated = true;
         }
-        if (updatedFood.getImageBase64() != null) {
-            if (updatedFood.getImageBase64().equals(existingFood.getImageBase64())) {
-                throw new InvalidInputException("No changes detected in food image.");
-            }
-            if (!GenerallController.isValidImage(updatedFood.getImageBase64())) {
-                throw new InvalidInputException("Invalid image format. Please provide a valid Base64 encoded image.");
-            }
+        if (updatedFood.getImageBase64() != null && !updatedFood.getImageBase64().equals(existingFood.getImageBase64())) {
             existingFood.setImageBase64(updatedFood.getImageBase64());
             isUpdated = true;
         }
-        if (updatedFood.getCategory() != null) {
-            if (updatedFood.getCategory().equals(existingFood.getCategory())) {
-                throw new InvalidInputException("No changes detected in food category.");
-            }
-            if (updatedFood.getCategory().equals(FoodCategory.UNDEFINED)) {
-                throw new InvalidInputException("Food category cannot be undefined.");
-            }
+        if (updatedFood.getCategory() != null && !updatedFood.getCategory().equals(existingFood.getCategory())) {
             existingFood.setCategory(updatedFood.getCategory());
             isUpdated = true;
         }

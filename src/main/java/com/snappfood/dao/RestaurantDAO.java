@@ -294,4 +294,38 @@ public class RestaurantDAO {
         }
         return false;
     }
+
+    public boolean isRestaurantPending(int restaurantId) throws SQLException {
+        String sql = "SELECT COUNT(*) FROM " + PENDING_RESTAURANTS_TABLE + " WHERE id = ?";
+        try (Connection conn = DatabaseManager.getConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+            stmt.setInt(1, restaurantId);
+            try (ResultSet rs = stmt.executeQuery()) {
+                if (rs.next()) {
+                    return rs.getInt(1) > 0;
+                }
+            }
+        }
+        return false;
+    }
+
+    public List<Restaurant> getPendingRestaurantsBySellerPhoneNumber(String sellerPhoneNumber) throws SQLException {
+        // This method assumes a similar structure to getRestaurantsBySellerPhoneNumber,
+        // but queries the pending_restaurants table. You might need to adjust the schema
+        // if the relationship is stored differently for pending restaurants.
+        List<Restaurant> restaurants = new ArrayList<>();
+        String sql = "SELECT r.* FROM " + PENDING_RESTAURANTS_TABLE + " r " +
+                "JOIN " + RESTAURANT_SELLERS_TABLE + " rs ON r.id = rs.restaurant_id " +
+                "WHERE rs.seller_phone_number = ?";
+        try (Connection conn = DatabaseManager.getConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+            stmt.setString(1, sellerPhoneNumber);
+            try (ResultSet rs = stmt.executeQuery()) {
+                while (rs.next()) {
+                    restaurants.add(extractRestaurantFromResultSet(rs));
+                }
+            }
+        }
+        return restaurants;
+    }
 }
