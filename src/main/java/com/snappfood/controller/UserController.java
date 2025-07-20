@@ -186,7 +186,15 @@ public class UserController {
 
         //409
         if (SessionRegistry.isUserActive(user.getId())) {
-            throw new ConflictException("User is already logged in on another device. Continuing will log out the other session.");
+            if (SessionRegistry.isUserActive(user.getId())) {
+                String existingToken = SessionRegistry.getTokenByUserId(user.getId());
+                Map<String, Object> response = new HashMap<>();
+                response.put("status", 409);
+                response.put("message", "You are already logged in.");
+                response.put("token", existingToken);
+                response.put("user", user);
+                return response;
+            }
         }
 
         //415 in request handler
@@ -224,7 +232,11 @@ public class UserController {
         if (user == null) {
             throw new InvalidInputException("User data cannot be null.");
         }
-
+        //409
+        if (userDAO.findUserByPhone(user.getPhone()) != null
+            || userDAO.isUserPending(user.getPhone())) {
+            throw new DuplicatePhoneNumberException("Phone number already exists.");
+        }
         if (user.getPhone() == null || !user.getPhone().matches("^[0-9]{10,15}$")) {
             throw new InvalidInputException("Invalid phone_number");
         }
@@ -262,10 +274,7 @@ public class UserController {
             }
         }
 
-        //409
-        if (userDAO.findUserByPhone(user.getPhone()) != null) {
-            throw new DuplicatePhoneNumberException("Phone number already exists.");
-        }
+
 
         //415 in request handler
 
@@ -289,12 +298,12 @@ public class UserController {
             String message;
             if (user.getRole() == Role.SELLER || user.getRole() == Role.COURIER) {
                 message = "Registration request sent. Waiting for admin approval.";
-                response.put("status", 200);
+                response.put("status", 201);
                 response.put("message", message);
             } else {
                 User createdUser = userDAO.findUserByPhone(user.getPhone());
                 String token = SessionRegistry.createSession(createdUser.getId());
-                message = "User registered successfully.";
+                message = "User registered successfully and is now logged in.";
                 response.put("status", 200);
                 response.put("message", message);
                 response.put("user_id", String.valueOf(createdUser.getId()));

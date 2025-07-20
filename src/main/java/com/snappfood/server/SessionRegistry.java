@@ -61,4 +61,15 @@ public class SessionRegistry {
             userIdToToken.remove(userId); // Remove user from userIdToToken
         }
     }
+
+    // Add this new method to your SessionRegistry class
+    /**
+     * Retrieves the token for a given user ID.
+     *
+     * @param userId The ID of the user.
+     * @return The session token, or null if the user has no active session.
+     */
+    public static String getTokenByUserId(int userId) {
+        return userIdToToken.get(userId);
+    }
 }

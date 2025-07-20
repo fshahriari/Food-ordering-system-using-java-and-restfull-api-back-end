@@ -116,9 +116,13 @@ public class RequestHandler implements Runnable {
             int statusCode = 200;
 
             try {
-                if ((method.equals("POST") || method.equals("PUT") || method.equals("PATCH")) &&
-                        (headers.get("Content-Type") == null || !headers.get("Content-Type").toLowerCase().startsWith("application/json"))) {
-                    throw new UnsupportedMediaTypeException("Content-Type header must be 'application/json' for POST, PUT, or PATCH requests.");
+                if ((method.equals("POST") || method.equals("PUT") || method.equals("PATCH"))) {
+                    // Only enforce Content-Type for POST/PUT/PATCH requests that are NOT for logging out
+                    if (!path.equals("/auth/logout")) {
+                        if (headers.get("Content-Type") == null || !headers.get("Content-Type").toLowerCase().startsWith("application/json")) {
+                            throw new UnsupportedMediaTypeException("Content-Type header must be 'application/json' for this request.");
+                        }
+                    }
                 }
                 if (method.equals("GET") && body != null && !body.isEmpty()) {
                     throw new UnsupportedMediaTypeException("GET requests cannot have a message body.");
@@ -174,46 +178,46 @@ public class RequestHandler implements Runnable {
 
                     default:
                         statusCode = 404;
-                        responseMap = Map.of("error", "Resource not found");
+                        responseMap = Map.of("error", "not found");
                         break;
                 }
 
             } catch (UnsupportedMediaTypeException e) {
                 statusCode = 415;
-                responseMap = Map.of("error", "Unsupported Media Type");
+                responseMap = Map.of("error", e.getMessage());
             } catch (InvalidInputException e) {
                 statusCode = 400;
                 responseMap = Map.of("error", e.getMessage());
             } catch (DuplicatePhoneNumberException | ConflictException e) {
                 statusCode = 409;
-                responseMap = Map.of("error", "Conflict occurred");
+                responseMap = Map.of("error", e.getMessage());
             } catch (ResourceNotFoundException e) {
                 statusCode = 404;
-                responseMap = Map.of("error", "Resource not found");
+                responseMap = Map.of("error", e.getMessage());
             } catch (UnauthorizedException e) {
                 statusCode = 401;
-                responseMap = Map.of("error", "Unauthorized request");
+                responseMap = Map.of("error", e.getMessage());
             } catch (ForbiddenException e) {
                 statusCode = 403;
-                responseMap = Map.of("error", "Forbidden request");
+                responseMap = Map.of("error", e.getMessage());
             } catch (TooManyRequestsException e) {
                 statusCode = 429;
-                responseMap = Map.of("error", "Too many requests");
+                responseMap = Map.of("error", e.getMessage());
             } catch (JsonSyntaxException e) {
                 statusCode = 400;
-                responseMap = Map.of("error", "Invalid JSON format.");
+                responseMap = Map.of("error", e.getMessage());
             } catch (SQLException e) {
                 statusCode = 500;
-                responseMap = Map.of("error", "Internal server error");
+                responseMap = Map.of("error", e.getMessage());
                 e.printStackTrace();
             }
             catch (InternalServerErrorException e) {
                 statusCode = 500;
-                responseMap = Map.of("error", "Internal server error");
+                responseMap = Map.of("error", e.getMessage());
                 e.printStackTrace();
             } catch (Exception e) {
                 statusCode = 500;
-                responseMap = Map.of("error", "Internal server error");
+                responseMap = Map.of("error", e.getMessage());
                 e.printStackTrace();
             }
 
