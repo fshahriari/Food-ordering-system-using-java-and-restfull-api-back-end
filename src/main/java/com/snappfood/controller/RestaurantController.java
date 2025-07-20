@@ -359,6 +359,53 @@ public class RestaurantController {
         return response;
     }
 
+    public Map<String, Object> handleDeleteFoodItem(Integer restaurantId, Integer itemId, Integer sellerId) throws Exception {
+        //401
+        if (sellerId == null) {
+            throw new UnauthorizedException("You must be logged in to delete a food item.");
+        }
+
+        User seller = userDAO.findUserById(sellerId);
+        if (seller == null || seller.getRole() != Role.SELLER) {
+            throw new ForbiddenException("Only sellers can delete food items.");
+        }
+
+        //400
+        if (restaurantId <= 0 || itemId <= 0) {
+            throw new InvalidInputException("Invalid restaurant or item ID.");
+        }
+
+        //403
+        Restaurant restaurant = restaurantDAO.getRestaurantById(restaurantId);
+        if (restaurant == null) {
+            throw new ResourceNotFoundException("Restaurant with ID " + restaurantId + " not found.");
+        }
+        if (!restaurant.getSellerPhoneNumbers().contains(seller.getPhone())) {
+            throw new ForbiddenException("You do not have permission to modify this restaurant's menu.");
+        }
+
+        //404
+        Food existingFood = restaurantDAO.getFoodItemById(itemId);
+        if (existingFood == null || existingFood.getRestaurantId() != restaurantId) {
+            throw new ResourceNotFoundException("Food item with ID " + itemId + " not found in this restaurant.");
+        }
+
+        //409
+        if (restaurantDAO.isFoodItemInActiveOrder(itemId)) {
+            throw new ConflictException("This food item cannot be deleted as it is part of an active order.");
+        }
+
+        boolean success = restaurantDAO.deleteFoodItem(itemId);
+        if (!success) {
+            throw new InternalServerErrorException("Failed to delete food item.");
+        }
+
+        Map<String, Object> response = new HashMap<>();
+        response.put("status", 200);
+        response.put("message", "Food item removed successfully.");
+        return response;
+    }
+
     private static class RequestTracker {
         private int requestCount;
         private long windowStartTime;

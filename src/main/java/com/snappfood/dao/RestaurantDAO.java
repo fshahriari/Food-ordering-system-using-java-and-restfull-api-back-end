@@ -310,9 +310,6 @@ public class RestaurantDAO {
     }
 
     public List<Restaurant> getPendingRestaurantsBySellerPhoneNumber(String sellerPhoneNumber) throws SQLException {
-        // This method assumes a similar structure to getRestaurantsBySellerPhoneNumber,
-        // but queries the pending_restaurants table. You might need to adjust the schema
-        // if the relationship is stored differently for pending restaurants.
         List<Restaurant> restaurants = new ArrayList<>();
         String sql = "SELECT r.* FROM " + PENDING_RESTAURANTS_TABLE + " r " +
                 "JOIN " + RESTAURANT_SELLERS_TABLE + " rs ON r.id = rs.restaurant_id " +
@@ -327,5 +324,11 @@ public class RestaurantDAO {
             }
         }
         return restaurants;
+    }
+
+    public boolean isFoodItemInActiveOrder(int foodId) throws SQLException {
+        //TODO This is a placeholder. You'll need to implement the actual logic
+        // to check if the food item is in an order that is not yet completed.
+        return false;
     }
 }
