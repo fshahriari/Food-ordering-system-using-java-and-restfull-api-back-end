@@ -30,6 +30,8 @@ public class Restaurant {
 
     private String category;
 
+    private ConfirmStatus confirmStatus;
+
     @SerializedName("tax_fee")
     private int taxFee;
 
@@ -76,6 +78,7 @@ public class Restaurant {
         this.additionalFee = additionalFee;
         this.menu = menu;
         this.sellerPhoneNumbers = sellerPhoneNumbers;
+        this.confirmStatus = ConfirmStatus.PENDING;
     }
 
 
@@ -164,5 +167,13 @@ public class Restaurant {
 
     public void setAdditionalFee(int additionalFee) {
         this.additionalFee = additionalFee;
+    }
+
+    public ConfirmStatus getConfirmStatus() {
+        return confirmStatus;
+    }
+
+    public void setConfirmStatus(ConfirmStatus confirmStatus) {
+        this.confirmStatus = confirmStatus;
     }
 }

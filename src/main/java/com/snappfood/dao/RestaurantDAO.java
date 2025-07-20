@@ -264,4 +264,34 @@ public class RestaurantDAO {
         }
         return null;
     }
+
+    public Food getFoodItemById(int foodId) throws SQLException {
+        String sql = "SELECT * FROM " + FOOD_ITEMS_TABLE + " WHERE id = ?";
+        try (Connection conn = DatabaseManager.getConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+            stmt.setInt(1, foodId);
+            try (ResultSet rs = stmt.executeQuery()) {
+                if (rs.next()) {
+                    return extractFoodFromResultSet(rs);
+                }
+            }
+        }
+        return null;
+    }
+
+    public boolean foodItemExistsByName(int restaurantId, String name) throws SQLException {
+        String sql = "SELECT COUNT(*) FROM " + FOOD_ITEMS_TABLE + " f " +
+                "JOIN menu_" + restaurantId + " m ON f.id = m.food_item_id " +
+                "WHERE f.name = ?";
+        try (Connection conn = DatabaseManager.getConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+            stmt.setString(1, name);
+            try (ResultSet rs = stmt.executeQuery()) {
+                if (rs.next()) {
+                    return rs.getInt(1) > 0;
+                }
+            }
+        }
+        return false;
+    }
 }
