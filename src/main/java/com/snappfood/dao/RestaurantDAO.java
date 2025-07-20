@@ -250,4 +250,18 @@ public class RestaurantDAO {
         }
         return sellerPhoneNumbers;
     }
+
+    public Restaurant getRestaurantByPhoneNumber(String phoneNumber) throws SQLException {
+        String sql = "SELECT * FROM restaurants WHERE phone_number = ?";
+        try (Connection conn = DatabaseManager.getConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+            stmt.setString(1, phoneNumber);
+            try (ResultSet rs = stmt.executeQuery()) {
+                if (rs.next()) {
+                    return extractRestaurantFromResultSet(rs);
+                }
+            }
+        }
+        return null;
+    }
 }

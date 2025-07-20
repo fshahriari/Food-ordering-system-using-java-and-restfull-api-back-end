@@ -174,6 +174,15 @@ public class RequestHandler implements Runnable {
                             if (responseMap.containsKey("status")) {
                                 statusCode = (int) responseMap.get("status");
                             }
+                        }else if (pathSegments.length == 3 && method.equals("PUT")) {
+                            try {
+                                Integer restaurantId = Integer.parseInt(pathSegments[2]);
+                                Restaurant updateData = gson.fromJson(body, Restaurant.class);
+                                responseMap = restaurantController.handleUpdateRestaurant(restaurantId, updateData, userId);
+                                statusCode = (int) responseMap.get("status");
+                            } catch (NumberFormatException e) {
+                                throw new ResourceNotFoundException("Invalid restaurant ID format.");
+                            }
                         } else if (pathSegments.length == 4 && pathSegments[3].equals("item") && method.equals("POST")) {
                             try {
                                 Integer restaurantId = Integer.parseInt(pathSegments[2]);

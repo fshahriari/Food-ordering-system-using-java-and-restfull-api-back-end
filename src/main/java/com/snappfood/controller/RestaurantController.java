@@ -34,6 +34,9 @@ public class RestaurantController {
     private static final long ADD_FOOD_RATE_LIMIT_WINDOW_MS = 3600000;
     private final Map<Integer, RequestTracker> addFoodItemTrackers = new ConcurrentHashMap<>();
 
+    private static final int MAX_UPDATE_RESTAURANT_REQUESTS = 10;
+    private static final long UPDATE_RESTAURANT_RATE_LIMIT_WINDOW_MS = 60000;
+    private final Map<Integer, RequestTracker> updateRestaurantTrackers = new ConcurrentHashMap<>();
 
     public Map<String, Object> handleCreateRestaurant(Restaurant restaurant, Integer sellerId) throws Exception {
         if (sellerId == null) {
@@ -161,6 +164,82 @@ public class RestaurantController {
         response.put("status", 200);
         response.put("message", "Food item added successfully.");
         response.put("food_item", food);
+        return response;
+    }
+
+    /**
+     * Handles updating an existing restaurant's details.
+     * @param restaurantId The ID of the restaurant to update.
+     * @param updateData A Restaurant object containing the fields to update.
+     * @param sellerId The ID of the authenticated seller.
+     * @return A map containing the fully updated restaurant object.
+     * @throws Exception for any validation, authorization, or database errors.
+     */
+    public Map<String, Object> handleUpdateRestaurant(Integer restaurantId, Restaurant updateData, Integer sellerId) throws Exception {
+        //401
+        if (sellerId == null) {
+            throw new UnauthorizedException("You must be logged in to update a restaurant.");
+        }
+
+        //429
+        RequestTracker tracker = updateRestaurantTrackers.computeIfAbsent(sellerId, k -> new RequestTracker(MAX_UPDATE_RESTAURANT_REQUESTS, UPDATE_RESTAURANT_RATE_LIMIT_WINDOW_MS));
+        if (!tracker.allowRequest()) {
+            throw new TooManyRequestsException("You are updating this restaurant too frequently. Please try again later.");
+        }
+
+        //403
+        User seller = userDAO.findUserById(sellerId);
+        if (seller == null || seller.getRole() != Role.SELLER) {
+            throw new ForbiddenException("Only sellers can update restaurants.");
+        }
+
+        //404
+        Restaurant existingRestaurant = restaurantDAO.getRestaurantById(restaurantId);
+        if (existingRestaurant == null) {
+            throw new ResourceNotFoundException("Restaurant with ID " + restaurantId + " not found.");
+        }
+
+        //403
+        if (!existingRestaurant.getSellerPhoneNumbers().contains(seller.getPhone())) {
+            throw new ForbiddenException("You do not have permission to update this restaurant.");
+        }
+
+        //400
+        if (updateData.getName() != null) {
+            if (updateData.getName().trim().isEmpty())
+                throw new InvalidInputException("Restaurant name cannot be empty.");
+            existingRestaurant.setName(updateData.getName());
+        }
+        if (updateData.getAddress() != null) {
+            if (updateData.getAddress().trim().isEmpty())
+                throw new InvalidInputException("Restaurant address cannot be empty.");
+            existingRestaurant.setAddress(updateData.getAddress());
+        }
+        if (updateData.getPhoneNumber() != null) {
+            if (!updateData.getPhoneNumber().matches("^[0-9]{10,15}$"))
+                throw new InvalidInputException("Invalid phone number format.");
+            Restaurant conflictingRestaurant = restaurantDAO.getRestaurantByPhoneNumber(updateData.getPhoneNumber());
+            if (conflictingRestaurant != null && conflictingRestaurant.getId() != existingRestaurant.getId()) {
+                throw new ConflictException("This phone number is already in use by another restaurant.");
+            }
+            existingRestaurant.setPhoneNumber(updateData.getPhoneNumber());
+        }
+        if (updateData.getTaxFee() > 0) {
+            if (updateData.getTaxFee() < 0)
+                throw new InvalidInputException("Tax fee cannot be negative.");
+            existingRestaurant.setTaxFee(updateData.getTaxFee());
+        }
+
+
+        boolean success = restaurantDAO.updateRestaurant(existingRestaurant);
+        if (!success) {
+            throw new InternalServerErrorException("Failed to update restaurant details.");
+        }
+
+        Map<String, Object> response = new HashMap<>();
+        response.put("status", 200);
+        response.put("message", "Restaurant updated successfully.");
+        response.put("restaurant", existingRestaurant);
         return response;
     }
 

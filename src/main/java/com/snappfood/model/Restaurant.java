@@ -31,10 +31,10 @@ public class Restaurant {
     private String category;
 
     @SerializedName("tax_fee")
-    private final int taxFee;
+    private int taxFee;
 
     @SerializedName("additional_fee")
-    private final int additionalFee;
+    private int additionalFee;
 
     //TODO This is for in-memory representation; how it's stored in the DB might differ.
     private Map<Food, Integer> menu;
@@ -154,9 +154,15 @@ public class Restaurant {
     public int getTaxFee() {
         return taxFee;
     }
+    public void setTaxFee(int taxFee) {
+        this.taxFee = taxFee;
+    }
 
     public int getAdditionalFee() {
         return additionalFee;
     }
 
+    public void setAdditionalFee(int additionalFee) {
+        this.additionalFee = additionalFee;
+    }
 }
