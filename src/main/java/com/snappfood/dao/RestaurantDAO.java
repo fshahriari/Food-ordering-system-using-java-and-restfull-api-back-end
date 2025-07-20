@@ -236,7 +236,7 @@ public class RestaurantDAO {
         return food;
     }
 
-    private List<String> getSellersForRestaurant(int restaurantId) throws SQLException {
+    public List<String> getSellersForRestaurant(int restaurantId) throws SQLException {
         List<String> sellerPhoneNumbers = new ArrayList<>();
         String sql = "SELECT seller_phone_number FROM " + RESTAURANT_SELLERS_TABLE + " WHERE restaurant_id = ?";
         try (Connection conn = DatabaseManager.getConnection();

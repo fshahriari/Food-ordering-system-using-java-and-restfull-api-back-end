@@ -30,6 +30,10 @@ public class RestaurantController {
     private static final long FETCH_RATE_LIMIT_WINDOW_MS = 60000;
     private final Map<Integer, RequestTracker> fetchRestaurantsTrackers = new ConcurrentHashMap<>();
 
+    private static final int MAX_ADD_FOOD_REQUESTS = 30;
+    private static final long ADD_FOOD_RATE_LIMIT_WINDOW_MS = 3600000;
+    private final Map<Integer, RequestTracker> addFoodItemTrackers = new ConcurrentHashMap<>();
+
 
     public Map<String, Object> handleCreateRestaurant(Restaurant restaurant, Integer sellerId) throws Exception {
         if (sellerId == null) {
@@ -67,51 +71,97 @@ public class RestaurantController {
         return response;
     }
 
-    /**
-     * Handles fetching the list of restaurants owned by a specific seller.
-     * @param sellerId The ID of the authenticated seller.
-     * @return A map containing a list of the seller's restaurants.
-     * @throws Exception for authorization or database errors.
-     */
     public Map<String, Object> handleGetMyRestaurants(Integer sellerId) throws Exception {
-        //401
         if (sellerId == null) {
             throw new UnauthorizedException("You must be logged in to view your restaurants.");
         }
-
-        //429
         RequestTracker tracker = fetchRestaurantsTrackers.computeIfAbsent(sellerId, k -> new RequestTracker(MAX_FETCH_RESTAURANTS_REQUESTS, FETCH_RATE_LIMIT_WINDOW_MS));
         if (!tracker.allowRequest()) {
             throw new TooManyRequestsException("Too many requests. Please try again later.");
         }
-
-        // Fetch user for authorization
         User seller = userDAO.findUserById(sellerId);
-
-        //404
         if (seller == null) {
             throw new ResourceNotFoundException("The specified seller account does not exist.");
         }
-
-        //403
         if (seller.getRole() != Role.SELLER) {
             throw new ForbiddenException("Only users with the 'seller' role can view their restaurants.");
         }
         if (userDAO.isUserPending(seller.getPhone())) {
             throw new ForbiddenException("Your seller account is pending approval.");
         }
-
         List<Restaurant> restaurants = restaurantDAO.getRestaurantsBySellerPhoneNumber(seller.getPhone());
-
         Map<String, Object> response = new HashMap<>();
         response.put("status", 200);
         response.put("restaurants", restaurants);
         return response;
     }
 
-    public Map<String, Object> handleAddFoodItem(Integer restaurantId, Food food, int supply, Integer sellerId) throws Exception {
-        // TODO: Implement logic
-        return null; // Placeholder
+    /**
+     * Handles adding a new food item to a restaurant's menu.
+     * @param restaurantId The ID of the restaurant to add the food to.
+     * @param food The food item from the request.
+     * @param sellerId The ID of the authenticated seller.
+     * @return A map containing the newly created food item.
+     * @throws Exception for validation, authorization, or database errors.
+     */
+    public Map<String, Object> handleAddFoodItem(Integer restaurantId, Food food, Integer sellerId) throws Exception {
+        //401
+        if (sellerId == null) {
+            throw new UnauthorizedException("You must be logged in to add a food item.");
+        }
+
+        //429
+        RequestTracker tracker = addFoodItemTrackers.computeIfAbsent(sellerId, k -> new RequestTracker(MAX_ADD_FOOD_REQUESTS, ADD_FOOD_RATE_LIMIT_WINDOW_MS));
+        if (!tracker.allowRequest()) {
+            throw new TooManyRequestsException("You are adding food items too quickly. Please try again later.");
+        }
+
+        //403
+        User seller = userDAO.findUserById(sellerId);
+        if (seller == null || seller.getRole() != Role.SELLER) {
+            throw new ForbiddenException("Only sellers can add food items.");
+        }
+
+        // Ownership Check
+        List<String> sellerPhoneNumbers = restaurantDAO.getSellersForRestaurant(restaurantId);
+        if (!sellerPhoneNumbers.contains(seller.getPhone())) {
+            throw new ForbiddenException("You do not have permission to modify this restaurant's menu.");
+        }
+
+        //400 n 404
+        if (restaurantDAO.getRestaurantById(restaurantId) == null) {
+            throw new ResourceNotFoundException("Restaurant with ID " + restaurantId + " not found.");
+        }
+        if (food.getName() == null || food.getName().trim().isEmpty()) {
+            throw new InvalidInputException("Food name is required.");
+        }
+        if (food.getPrice() < 0) {
+            throw new InvalidInputException("Price cannot be negative.");
+        }
+        if (food.getSupply() < 0) {
+            throw new InvalidInputException("Supply cannot be negative.");
+        }
+        if (food.getCategory() == null) {
+            throw new InvalidInputException("A valid food category is required.");
+        }
+
+        //409
+        List<Food> currentMenu = restaurantDAO.getMenuForRestaurant(restaurantId);
+        for (Food menuItem : currentMenu) {
+            if (menuItem.getName().equalsIgnoreCase(food.getName().trim())) {
+                throw new ConflictException("A food item with this name already exists in this restaurant's menu.");
+            }
+        }
+
+        food.setRestaurantId(restaurantId);
+        int newFoodId = restaurantDAO.addFoodItem(food, food.getSupply());
+        food.setId(newFoodId);
+
+        Map<String, Object> response = new HashMap<>();
+        response.put("status", 200);
+        response.put("message", "Food item added successfully.");
+        response.put("food_item", food);
+        return response;
     }
 
     public Map<String, Object> handleGetRestaurantMenu(Integer restaurantId) throws Exception {

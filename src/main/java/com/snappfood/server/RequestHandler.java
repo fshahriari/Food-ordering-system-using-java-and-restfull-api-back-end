@@ -6,6 +6,7 @@ import com.snappfood.controller.AdminController;
 import com.snappfood.controller.RestaurantController;
 import com.snappfood.controller.UserController;
 import com.snappfood.exception.*;
+import com.snappfood.model.Food;
 import com.snappfood.model.Restaurant;
 import com.snappfood.model.User;
 
@@ -172,6 +173,16 @@ public class RequestHandler implements Runnable {
                             responseMap = restaurantController.handleGetMyRestaurants(userId);
                             if (responseMap.containsKey("status")) {
                                 statusCode = (int) responseMap.get("status");
+                            }
+                        } else if (pathSegments.length == 4 && pathSegments[3].equals("item") && method.equals("POST")) {
+                            try {
+                                Integer restaurantId = Integer.parseInt(pathSegments[2]);
+                                Food newFood = gson.fromJson(body, Food.class);
+                                responseMap = restaurantController.handleAddFoodItem(restaurantId, newFood, userId);
+                                statusCode = (int) responseMap.get("status");
+                            } catch (NumberFormatException e) {
+                                statusCode = 404;
+                                responseMap = Map.of("error", "Resource not found: Invalid restaurant ID format.");
                             }
                         }
                         break;
