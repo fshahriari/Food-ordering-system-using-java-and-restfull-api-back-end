@@ -2,6 +2,7 @@ package com.snappfood.dao;
 
 import com.snappfood.database.DatabaseManager;
 import com.snappfood.model.Food;
+import com.snappfood.model.FoodCategory;
 import com.snappfood.model.Restaurant;
 
 import java.sql.*;
@@ -26,7 +27,6 @@ public class RestaurantDAO {
      * @throws SQLException if a database access error occurs.
      */
     public void createMenuTableForRestaurant(int restaurantId) throws SQLException {
-        // Sanitize the table name to prevent SQL injection, although restaurantId is an int.
         String menuTableName = "menu_" + restaurantId;
         String sql = "CREATE TABLE IF NOT EXISTS " + menuTableName + " (" +
                 "    food_item_id INT NOT NULL," +
@@ -115,11 +115,9 @@ public class RestaurantDAO {
         String sql = "DELETE FROM " + RESTAURANTS_TABLE + " WHERE id = ?";
         try (Connection conn = DatabaseManager.getConnection();
              Statement stmt = conn.createStatement()) {
-            // Drop the dedicated menu table first
             String menuTableName = "menu_" + restaurantId;
             stmt.execute("DROP TABLE IF EXISTS " + menuTableName);
 
-            // Then delete the restaurant record
             PreparedStatement deleteStmt = conn.prepareStatement(sql);
             deleteStmt.setInt(1, restaurantId);
             return deleteStmt.executeUpdate() > 0;
@@ -134,7 +132,7 @@ public class RestaurantDAO {
             stmt.setString(2, food.getImageBase64());
             stmt.setString(3, food.getDescription());
             stmt.setInt(4, food.getPrice());
-            stmt.setString(5, food.getCategory());
+            stmt.setString(5, food.getCategory().getValue());
             stmt.executeUpdate();
 
             try (ResultSet generatedKeys = stmt.getGeneratedKeys()) {
@@ -186,7 +184,7 @@ public class RestaurantDAO {
             stmt.setString(2, food.getImageBase64());
             stmt.setString(3, food.getDescription());
             stmt.setInt(4, food.getPrice());
-            stmt.setString(5, food.getCategory());
+            stmt.setString(5, food.getCategory().getValue());
             stmt.setInt(6, food.getId());
 
             updateMenuItemSupply(food.getRestaurantId(), food.getId(), supply);
@@ -234,7 +232,7 @@ public class RestaurantDAO {
         food.setImageBase64(rs.getString("image_base64"));
         food.setDescription(rs.getString("description"));
         food.setPrice(rs.getInt("price"));
-        food.setCategory(rs.getString("category"));
+        food.setCategory(FoodCategory.fromString(rs.getString("category")));
         return food;
     }
 
