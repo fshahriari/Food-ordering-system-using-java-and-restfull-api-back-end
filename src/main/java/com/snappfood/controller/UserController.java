@@ -296,11 +296,7 @@ public class UserController {
         if (success) {
             Map<String, Object> response = new HashMap<>();
             String message;
-            if (user.getRole() == Role.SELLER || user.getRole() == Role.COURIER) {
-                message = "Registration request sent. Waiting for admin approval.";
-                response.put("status", 201);
-                response.put("message", message);
-            } else {
+            if (user.getRole() == Role.COURIER) {
                 User createdUser = userDAO.findUserByPhone(user.getPhone());
                 String token = SessionRegistry.createSession(createdUser.getId());
                 message = "User registered successfully and is now logged in.";
@@ -308,6 +304,10 @@ public class UserController {
                 response.put("message", message);
                 response.put("user_id", String.valueOf(createdUser.getId()));
                 response.put("token", token);
+            } else {
+                message = "Registration request sent. Waiting for admin approval.";
+                response.put("status", 201);
+                response.put("message", message);
             }
             return response;
         } else {
