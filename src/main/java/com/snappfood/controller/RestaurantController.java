@@ -470,6 +470,55 @@ public class RestaurantController {
         return response;
     }
 
+    public Map<String, Object> handleDeleteMenu(Integer restaurantId, Integer sellerId) throws Exception {
+        //401
+        if (sellerId == null) {
+            throw new UnauthorizedException("You must be logged in to delete a menu.");
+        }
+
+        //403
+        User seller = userDAO.findUserById(sellerId);
+        if (seller == null || seller.getRole() != Role.SELLER) {
+            throw new ForbiddenException("Only sellers can delete menus.");
+        }
+
+        //400
+        if (restaurantId <= 0) {
+            throw new InvalidInputException("Invalid restaurant ID.");
+        }
+
+        //403 n 404
+        Restaurant restaurant = restaurantDAO.getRestaurantById(restaurantId);
+        if (restaurant == null) {
+            throw new ResourceNotFoundException("Restaurant with ID " + restaurantId + " not found.");
+        }
+        if (!restaurant.getSellerPhoneNumbers().contains(seller.getPhone())) {
+            throw new ForbiddenException("You do not have permission to delete this menu.");
+        }
+        if (restaurantDAO.isRestaurantPending(restaurantId)) {
+            throw new ForbiddenException("Cannot delete a menu for a restaurant that is pending approval.");
+        }
+
+
+
+        //404
+        if (!restaurantDAO.doesMenuExist(restaurantId)) {
+            throw new ResourceNotFoundException("Menu not found for the specified restaurant.");
+        }
+
+        //409
+        if (restaurantDAO.isMenuItemInActiveOrder(restaurantId)) {
+            throw new ConflictException("Cannot delete menu: one or more items are part of an active order.");
+        }
+
+        restaurantDAO.deleteMenuTable(restaurantId);
+
+        Map<String, Object> response = new HashMap<>();
+        response.put("status", 200);
+        response.put("message", "Menu removed from restaurant successfully.");
+        return response;
+    }
+
     private static class RequestTracker {
         private int requestCount;
         private long windowStartTime;

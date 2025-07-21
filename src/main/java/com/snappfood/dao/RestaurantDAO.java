@@ -332,6 +332,12 @@ public class RestaurantDAO {
         return false;
     }
 
+    public boolean isMenuItemInActiveOrder(int restaurantId) throws SQLException {
+        // This is a placeholder. You'll need to implement the actual logic to check
+        // if any food item in the menu is part of an active order.
+        return false;
+    }
+
     public boolean doesMenuExist(int restaurantId) throws SQLException {
         String menuTableName = "menu_" + restaurantId;
         try (Connection conn = DatabaseManager.getConnection()) {
@@ -339,6 +345,15 @@ public class RestaurantDAO {
             try (ResultSet rs = meta.getTables(null, null, menuTableName, new String[]{"TABLE"})) {
                 return rs.next();
             }
+        }
+    }
+
+    public void deleteMenuTable(int restaurantId) throws SQLException {
+        String menuTableName = "menu_" + restaurantId;
+        String sql = "DROP TABLE IF EXISTS " + menuTableName;
+        try (Connection conn = DatabaseManager.getConnection();
+             Statement stmt = conn.createStatement()) {
+            stmt.execute(sql);
         }
     }
 }

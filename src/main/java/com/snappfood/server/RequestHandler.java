@@ -197,6 +197,16 @@ public class RequestHandler implements Runnable {
                                 statusCode = 404;
                                 responseMap = Map.of("error", "Resource not found: Invalid restaurant ID format.");
                             }
+                        } else if (pathSegments.length == 5 && pathSegments[3].equals("menu") && method.equals("DELETE")) {
+                            try {
+                                Integer restaurantId = Integer.parseInt(pathSegments[2]);
+                                //title in pathSegments[4], but will be ignored
+                                responseMap = restaurantController.handleDeleteMenu(restaurantId, userId);
+                                statusCode = (int) responseMap.get("status");
+                            } catch (NumberFormatException e) {
+                                statusCode = 404;
+                                responseMap = Map.of("error", "Resource not found: Invalid restaurant ID format.");
+                            }
                         } else if (pathSegments.length == 4 && pathSegments[3].equals("item") && method.equals("POST")) {
                             try {
                                 Integer restaurantId = Integer.parseInt(pathSegments[2]);
@@ -206,17 +216,6 @@ public class RequestHandler implements Runnable {
                             } catch (NumberFormatException e) {
                                 statusCode = 404;
                                 responseMap = Map.of("error", "Resource not found: Invalid restaurant ID format.");
-                            }
-                        } else if (pathSegments.length == 5 && pathSegments[3].equals("item") && method.equals("PUT")) {
-                            try {
-                                Integer restaurantId = Integer.parseInt(pathSegments[2]);
-                                Integer itemId = Integer.parseInt(pathSegments[4]);
-                                Food updatedFood = gson.fromJson(body, Food.class);
-                                responseMap = restaurantController.handleUpdateFoodItem(restaurantId, itemId, updatedFood, userId);
-                                statusCode = (int) responseMap.get("status");
-                            } catch (NumberFormatException e) {
-                                statusCode = 404;
-                                responseMap = Map.of("error", "Resource not found: Invalid restaurant or item ID format.");
                             }
                         } else if (pathSegments.length == 5 && pathSegments[3].equals("item") && method.equals("DELETE")) {
                             try {
