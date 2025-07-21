@@ -327,8 +327,18 @@ public class RestaurantDAO {
     }
 
     public boolean isFoodItemInActiveOrder(int foodId) throws SQLException {
-        //TODO This is a placeholder. You'll need to implement the actual logic
+        // This is a placeholder. You'll need to implement the actual logic
         // to check if the food item is in an order that is not yet completed.
         return false;
+    }
+
+    public boolean doesMenuExist(int restaurantId) throws SQLException {
+        String menuTableName = "menu_" + restaurantId;
+        try (Connection conn = DatabaseManager.getConnection()) {
+            DatabaseMetaData meta = conn.getMetaData();
+            try (ResultSet rs = meta.getTables(null, null, menuTableName, new String[]{"TABLE"})) {
+                return rs.next();
+            }
+        }
     }
 }

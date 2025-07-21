@@ -183,6 +183,20 @@ public class RequestHandler implements Runnable {
                             } catch (NumberFormatException e) {
                                 throw new ResourceNotFoundException("Invalid restaurant ID format.");
                             }
+                        } else if (pathSegments.length == 4 && pathSegments[3].equals("menu") && method.equals("POST")) {
+                            try {
+                                Integer restaurantId = Integer.parseInt(pathSegments[2]);
+                                Map<String, String> requestBody = gson.fromJson(body, Map.class);
+                                if (requestBody == null) {
+                                    throw new InvalidInputException("Request body is missing.");
+                                }
+                                String title = requestBody.get("title");
+                                responseMap = restaurantController.handleCreateMenu(restaurantId, userId, title);
+                                statusCode = (int) responseMap.get("status");
+                            } catch (NumberFormatException e) {
+                                statusCode = 404;
+                                responseMap = Map.of("error", "Resource not found: Invalid restaurant ID format.");
+                            }
                         } else if (pathSegments.length == 4 && pathSegments[3].equals("item") && method.equals("POST")) {
                             try {
                                 Integer restaurantId = Integer.parseInt(pathSegments[2]);

@@ -136,6 +136,10 @@ public class RestaurantController {
             throw new ForbiddenException("Only sellers can add food items.");
         }
 
+        if (!restaurantDAO.doesMenuExist(restaurantId)) {
+            throw new ConflictException("A menu has not been created for this restaurant. Please create a menu first.");
+        }
+
         if (restaurantDAO.isRestaurantPending(restaurantId)) {
             throw new ForbiddenException("Cannot add food items to a restaurant that is pending approval.");
         }
@@ -209,9 +213,12 @@ public class RestaurantController {
         }
 
         if (restaurantDAO.isRestaurantPending(restaurantId)) {
-            throw new ForbiddenException("Cannot update a restaurant that is pending approval.");
+            throw new ForbiddenException("Cannot update food items for a restaurant that is pending approval.");
         }
 
+        if (!restaurantDAO.doesMenuExist(restaurantId)) {
+            throw new ConflictException("A menu has not been created for this restaurant. Please create a menu first.");
+        }
         //404
         Restaurant existingRestaurant = restaurantDAO.getRestaurantById(restaurantId);
         if (existingRestaurant == null) {
@@ -289,6 +296,10 @@ public class RestaurantController {
         User seller = userDAO.findUserById(sellerId);
         if (seller == null || seller.getRole() != Role.SELLER) {
             throw new ForbiddenException("Only sellers can update food items.");
+        }
+
+        if (!restaurantDAO.doesMenuExist(restaurantId)) {
+            throw new ConflictException("A menu has not been created for this restaurant. Please create a menu first.");
         }
 
         if (restaurantId <= 0 || itemId <= 0) {
@@ -375,6 +386,11 @@ public class RestaurantController {
             throw new InvalidInputException("Invalid restaurant or item ID.");
         }
 
+        //409
+        if (!restaurantDAO.doesMenuExist(restaurantId)) {
+            throw new ConflictException("A menu has not been created for this restaurant. Please create a menu first.");
+        }
+
         //403
         Restaurant restaurant = restaurantDAO.getRestaurantById(restaurantId);
         if (restaurant == null) {
@@ -403,6 +419,54 @@ public class RestaurantController {
         Map<String, Object> response = new HashMap<>();
         response.put("status", 200);
         response.put("message", "Food item removed successfully.");
+        return response;
+    }
+
+    public Map<String, Object> handleCreateMenu(Integer restaurantId, Integer sellerId, String title) throws Exception {
+        //401
+        if (sellerId == null || sellerId <= 0) {
+            throw new UnauthorizedException("You must be logged in to create a menu.");
+        }
+
+        //403
+        User seller = userDAO.findUserById(sellerId);
+        if (seller == null || seller.getRole() != Role.SELLER) {
+            throw new ForbiddenException("Only sellers can create menus.");
+        }
+
+        //400
+        if (title == null || title.trim().isEmpty()) {
+            throw new InvalidInputException("Menu title is required.");
+        }
+
+        //404
+        if (restaurantId <= 0) {
+            throw new ResourceNotFoundException("Invalid restaurant ID, restaurant not found.");
+        }
+
+        //403
+        Restaurant restaurant = restaurantDAO.getRestaurantById(restaurantId);
+        if (restaurant == null) {
+            throw new ResourceNotFoundException("Restaurant with ID " + restaurantId + " not found.");
+        }
+        if (!restaurant.getSellerPhoneNumbers().contains(seller.getPhone())) {
+            throw new ForbiddenException("You do not have permission to create a menu for this restaurant.");
+        }
+        if (restaurantDAO.isRestaurantPending(restaurantId)) {
+            throw new ForbiddenException("Cannot create a menu for a restaurant that is pending approval.");
+        }
+
+        //409
+        if (restaurantDAO.doesMenuExist(restaurantId)) {
+            throw new ConflictException("A menu for this restaurant already exists.");
+        }
+
+        restaurantDAO.createMenuTableForRestaurant(restaurantId);
+
+        Map<String, Object> response = new HashMap<>();
+        response.put("status", 200);
+        response.put("message", "Menu created successfully.");
+        response.put("title", title);
         return response;
     }
 
