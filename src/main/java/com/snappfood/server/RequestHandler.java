@@ -26,7 +26,7 @@ public class RequestHandler implements Runnable {
     private final SocketChannel clientChannel;
     private final UserController userController;
     private final AdminController adminController;
-    private final RestaurantController restaurantController; // Added RestaurantController
+    private final RestaurantController restaurantController;
     private final Gson gson;
 
     public RequestHandler(String request, SocketChannel clientChannel) {
@@ -34,7 +34,7 @@ public class RequestHandler implements Runnable {
         this.clientChannel = clientChannel;
         this.userController = new UserController();
         this.adminController = new AdminController();
-        this.restaurantController = new RestaurantController(); // Initialize it
+        this.restaurantController = new RestaurantController();
         this.gson = new Gson();
     }
 
@@ -118,7 +118,6 @@ public class RequestHandler implements Runnable {
 
             try {
                 if ((method.equals("POST") || method.equals("PUT") || method.equals("PATCH"))) {
-                    // Only enforce Content-Type for POST/PUT/PATCH requests that are NOT for logging out
                     if (!path.equals("/auth/logout")) {
                         if (headers.get("Content-Type") == null || !headers.get("Content-Type").toLowerCase().startsWith("application/json")) {
                             throw new UnsupportedMediaTypeException("Content-Type header must be 'application/json' for this request.");
@@ -166,77 +165,68 @@ public class RequestHandler implements Runnable {
                         if (path.equals("/restaurants") && method.equals("POST")) {
                             Restaurant newRestaurant = gson.fromJson(body, Restaurant.class);
                             responseMap = restaurantController.handleCreateRestaurant(newRestaurant, userId);
-                            if (responseMap.containsKey("status")) {
-                                statusCode = (int) responseMap.get("status");
-                            }
                         } else if (path.equals("/restaurants/mine") && method.equals("GET")) {
                             responseMap = restaurantController.handleGetMyRestaurants(userId);
-                            if (responseMap.containsKey("status")) {
-                                statusCode = (int) responseMap.get("status");
-                            }
-                        }else if (pathSegments.length == 3 && method.equals("PUT")) {
-                            try {
-                                Integer restaurantId = Integer.parseInt(pathSegments[2]);
-                                Restaurant updateData = gson.fromJson(body, Restaurant.class);
-                                responseMap = restaurantController.handleUpdateRestaurant(restaurantId, updateData, userId);
-                                statusCode = (int) responseMap.get("status");
-                            } catch (NumberFormatException e) {
-                                throw new ResourceNotFoundException("Invalid restaurant ID format.");
-                            }
-                        } else if (pathSegments.length == 4 && pathSegments[3].equals("menu") && method.equals("POST")) {
-                            try {
-                                Integer restaurantId = Integer.parseInt(pathSegments[2]);
-                                Map<String, String> requestBody = gson.fromJson(body, Map.class);
-                                if (requestBody == null) {
-                                    throw new InvalidInputException("Request body is missing.");
-                                }
-                                String title = requestBody.get("title");
-                                responseMap = restaurantController.handleCreateMenu(restaurantId, userId, title);
-                                statusCode = (int) responseMap.get("status");
-                            } catch (NumberFormatException e) {
-                                statusCode = 404;
-                                responseMap = Map.of("error", "Resource not found: Invalid restaurant ID format.");
-                            }
-                        } else if (pathSegments.length == 5 && pathSegments[3].equals("menu") && method.equals("DELETE")) {
-                            try {
-                                Integer restaurantId = Integer.parseInt(pathSegments[2]);
-                                //title in pathSegments[4], but will be ignored
-                                responseMap = restaurantController.handleDeleteMenu(restaurantId, userId);
-                                statusCode = (int) responseMap.get("status");
-                            } catch (NumberFormatException e) {
-                                statusCode = 404;
-                                responseMap = Map.of("error", "Resource not found: Invalid restaurant ID format.");
-                            }
-                        } else if (pathSegments.length == 4 && pathSegments[3].equals("item") && method.equals("POST")) {
-                            try {
-                                Integer restaurantId = Integer.parseInt(pathSegments[2]);
-                                Food newFood = gson.fromJson(body, Food.class);
-                                responseMap = restaurantController.handleAddFoodItem(restaurantId, newFood, userId);
-                                statusCode = (int) responseMap.get("status");
-                            } catch (NumberFormatException e) {
-                                statusCode = 404;
-                                responseMap = Map.of("error", "Resource not found: Invalid restaurant ID format.");
-                            }
+                        } else if (pathSegments.length == 3 && method.equals("PUT")) {
+                            Integer restaurantId = Integer.parseInt(pathSegments[2]);
+                            Restaurant updateData = gson.fromJson(body, Restaurant.class);
+                            responseMap = restaurantController.handleUpdateRestaurant(restaurantId, updateData, userId);
+                        }
+                        else if (pathSegments.length == 4 && pathSegments[3].equals("item") && method.equals("POST")) {
+                            Integer restaurantId = Integer.parseInt(pathSegments[2]);
+                            Food newFood = gson.fromJson(body, Food.class);
+                            responseMap = restaurantController.handleAddFoodItemToMasterList(restaurantId, userId, newFood);
+                        } else if (pathSegments.length == 5 && pathSegments[3].equals("item") && method.equals("PUT")) {
+                            Integer restaurantId = Integer.parseInt(pathSegments[2]);
+                            Integer itemId = Integer.parseInt(pathSegments[4]);
+                            Food updatedFood = gson.fromJson(body, Food.class);
+                            responseMap = restaurantController.handleUpdateMasterFoodItem(restaurantId, itemId, userId, updatedFood);
                         } else if (pathSegments.length == 5 && pathSegments[3].equals("item") && method.equals("DELETE")) {
-                            try {
-                                Integer restaurantId = Integer.parseInt(pathSegments[2]);
-                                Integer itemId = Integer.parseInt(pathSegments[4]);
-                                responseMap = restaurantController.handleDeleteFoodItem(restaurantId, itemId, userId);
-                                statusCode = (int) responseMap.get("status");
-                            } catch (NumberFormatException e) {
-                                statusCode = 404;
-                                responseMap = Map.of("error", "Resource not found: Invalid restaurant or item ID format.");
+                            Integer restaurantId = Integer.parseInt(pathSegments[2]);
+                            Integer itemId = Integer.parseInt(pathSegments[4]);
+                            responseMap = restaurantController.handleDeleteMasterFoodItem(restaurantId, itemId, userId);
+                        }
+                        else if (pathSegments.length == 4 && pathSegments[3].equals("menu") && method.equals("POST")) {
+                            if (userId == null) throw new UnauthorizedException("Authentication is required.");
+                            Integer restaurantId = Integer.parseInt(pathSegments[2]);
+                            Map<String, String> requestBody = gson.fromJson(body, Map.class);
+                            if (requestBody == null) {
+                                throw new InvalidInputException("Request body is missing.");
                             }
+                            String title = requestBody.get("title");
+                            responseMap = restaurantController.handleCreateMenu(restaurantId, userId, title);
+                        } else if (pathSegments.length == 5 && pathSegments[3].equals("menu") && method.equals("DELETE")) {
+                            Integer restaurantId = Integer.parseInt(pathSegments[2]);
+                            String title = pathSegments[4];
+                            responseMap = restaurantController.handleDeleteTitledMenu(restaurantId, userId, title);
+                        }
+                        else if (pathSegments.length == 5 && pathSegments[3].equals("menu") && method.equals("PUT")) {
+                            Integer restaurantId = Integer.parseInt(pathSegments[2]);
+                            String title = pathSegments[4];
+                            Map<String, Integer> requestBody = gson.fromJson(body, Map.class);
+                            Integer itemId = requestBody != null ? requestBody.get("item_id") : null;
+                            responseMap = restaurantController.handleAddItemToTitledMenu(restaurantId, userId, title, itemId);
+                        } else if (pathSegments.length == 6 && pathSegments[3].equals("menu") && method.equals("DELETE")) {
+                            Integer restaurantId = Integer.parseInt(pathSegments[2]);
+                            String title = pathSegments[4];
+                            Integer itemId = Integer.parseInt(pathSegments[5]);
+                            responseMap = restaurantController.handleRemoveItemFromTitledMenu(restaurantId, userId, title, itemId);
                         }
                         break;
 
                     default:
                         statusCode = 404;
-                        responseMap = Map.of("error", "not found");
+                        responseMap = Map.of("error", "Not Found");
                         break;
                 }
+                if (responseMap.containsKey("status")) {
+                    statusCode = (int) responseMap.get("status");
+                }
 
-            } catch (UnsupportedMediaTypeException e) {
+            } catch (NumberFormatException e) {
+                statusCode = 400;
+                responseMap = Map.of("error", "Invalid ID format in URL.");
+            } catch (UnsupportedMediaTypeException | JsonSyntaxException e) {
                 statusCode = 415;
                 responseMap = Map.of("error", e.getMessage());
             } catch (InvalidInputException e) {
@@ -257,21 +247,18 @@ public class RequestHandler implements Runnable {
             } catch (TooManyRequestsException e) {
                 statusCode = 429;
                 responseMap = Map.of("error", e.getMessage());
-            } catch (JsonSyntaxException e) {
-                statusCode = 400;
-                responseMap = Map.of("error", e.getMessage());
             } catch (SQLException e) {
                 statusCode = 500;
-                responseMap = Map.of("error", e.getMessage());
+                responseMap = Map.of("error", "A database error occurred.");
                 e.printStackTrace();
             }
             catch (InternalServerErrorException e) {
                 statusCode = 500;
-                responseMap = Map.of("error", e.getMessage());
+                responseMap = Map.of("error", "An internal server error occurred.");
                 e.printStackTrace();
             } catch (Exception e) {
                 statusCode = 500;
-                responseMap = Map.of("error", e.getMessage());
+                responseMap = Map.of("error", "An unexpected error occurred.");
                 e.printStackTrace();
             }
 

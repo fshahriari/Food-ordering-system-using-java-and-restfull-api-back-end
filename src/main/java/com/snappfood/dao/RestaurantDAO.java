@@ -3,43 +3,21 @@ package com.snappfood.dao;
 import com.snappfood.database.DatabaseManager;
 import com.snappfood.model.Food;
 import com.snappfood.model.FoodCategory;
+import com.snappfood.model.Menu;
 import com.snappfood.model.Restaurant;
 
 import java.sql.*;
 import java.util.ArrayList;
 import java.util.List;
 
-/**
- * Data Access Object for handling database operations related to Restaurants and Food items.
- * This version dynamically creates a separate menu table for each restaurant.
- */
 public class RestaurantDAO {
 
     private static final String RESTAURANTS_TABLE = "restaurants";
     private static final String PENDING_RESTAURANTS_TABLE = "pending_restaurants";
     private static final String FOOD_ITEMS_TABLE = "food_items";
+    private static final String MENUS_TABLE = "menus";
+    private static final String MENU_ITEMS_TABLE = "menu_items";
     private static final String RESTAURANT_SELLERS_TABLE = "restaurant_sellers";
-
-    /**
-     * Creates a dedicated menu table for a newly created restaurant.
-     * WARNING: DYNAMIC TABLE CREATION IS AN ADVANCED OPERATION AND CAN BE RISKY.
-     * @param restaurantId The ID of the restaurant for which to create a menu table.
-     * @throws SQLException if a database access error occurs.
-     */
-    public void createMenuTableForRestaurant(int restaurantId) throws SQLException {
-        String menuTableName = "menu_" + restaurantId;
-        String sql = "CREATE TABLE IF NOT EXISTS " + menuTableName + " (" +
-                "    food_item_id INT NOT NULL," +
-                "    supply INT NOT NULL," +
-                "    PRIMARY KEY (food_item_id)," +
-                "    FOREIGN KEY (food_item_id) REFERENCES food_items(id) ON DELETE CASCADE" +
-                ")";
-
-        try (Connection conn = DatabaseManager.getConnection();
-             Statement stmt = conn.createStatement()) {
-            stmt.execute(sql);
-        }
-    }
 
     public int createPendingRestaurant(Restaurant restaurant) throws SQLException {
         String sql = "INSERT INTO " + PENDING_RESTAURANTS_TABLE + " (name, logo_base64, address, phone_number, working_hours, category) VALUES (?, ?, ?, ?, ?, ?)";
@@ -111,21 +89,12 @@ public class RestaurantDAO {
         }
     }
 
-    public boolean deleteRestaurant(int restaurantId) throws SQLException {
-        String sql = "DELETE FROM " + RESTAURANTS_TABLE + " WHERE id = ?";
-        try (Connection conn = DatabaseManager.getConnection();
-             Statement stmt = conn.createStatement()) {
-            String menuTableName = "menu_" + restaurantId;
-            stmt.execute("DROP TABLE IF EXISTS " + menuTableName);
 
-            PreparedStatement deleteStmt = conn.prepareStatement(sql);
-            deleteStmt.setInt(1, restaurantId);
-            return deleteStmt.executeUpdate() > 0;
-        }
-    }
-
-    public int addFoodItem(Food food, int supply) throws SQLException {
-        String sql = "INSERT INTO " + FOOD_ITEMS_TABLE + " (name, image_base64, description, price, category) VALUES (?, ?, ?, ?, ?)";
+    /**
+     * Adds a food item to a restaurant's master food list.
+     */
+    public int addFoodItem(Food food) throws SQLException {
+        String sql = "INSERT INTO " + FOOD_ITEMS_TABLE + " (name, image_base64, description, price, category, supply, restaurant_id) VALUES (?, ?, ?, ?, ?, ?, ?)";
         try (Connection conn = DatabaseManager.getConnection();
              PreparedStatement stmt = conn.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
             stmt.setString(1, food.getName());
@@ -133,13 +102,13 @@ public class RestaurantDAO {
             stmt.setString(3, food.getDescription());
             stmt.setInt(4, food.getPrice());
             stmt.setString(5, food.getCategory().getValue());
+            stmt.setInt(6, food.getSupply());
+            stmt.setInt(7, food.getRestaurantId());
             stmt.executeUpdate();
 
             try (ResultSet generatedKeys = stmt.getGeneratedKeys()) {
                 if (generatedKeys.next()) {
-                    int foodId = generatedKeys.getInt(1);
-                    addFoodItemToMenu(food.getRestaurantId(), foodId, supply);
-                    return foodId;
+                    return generatedKeys.getInt(1);
                 } else {
                     throw new SQLException("Creating food item failed, no ID obtained.");
                 }
@@ -147,68 +116,126 @@ public class RestaurantDAO {
         }
     }
 
-    public void addFoodItemToMenu(int restaurantId, int foodId, int supply) throws SQLException {
-        String menuTableName = "menu_" + restaurantId;
-        String sql = "INSERT INTO " + menuTableName + " (food_item_id, supply) VALUES (?, ?)";
-        try (Connection conn = DatabaseManager.getConnection();
-             PreparedStatement stmt = conn.prepareStatement(sql)) {
-            stmt.setInt(1, foodId);
-            stmt.setInt(2, supply);
-            stmt.executeUpdate();
-        }
-    }
 
-    public List<Food> getMenuForRestaurant(int restaurantId) throws SQLException {
-        List<Food> menu = new ArrayList<>();
-        String menuTableName = "menu_" + restaurantId;
-        String sql = "SELECT f.*, mi.supply FROM " + FOOD_ITEMS_TABLE + " f " +
-                "JOIN " + menuTableName + " mi ON f.id = mi.food_item_id";
+    /**
+     * Creates a new titled menu for a restaurant.
+     */
+    public int createMenu(Menu menu) throws SQLException {
+        String sql = "INSERT INTO " + MENUS_TABLE + " (restaurant_id, title) VALUES (?, ?)";
         try (Connection conn = DatabaseManager.getConnection();
-             Statement stmt = conn.createStatement()) {
-            try (ResultSet rs = stmt.executeQuery(sql)) {
-                while (rs.next()) {
-                    Food food = extractFoodFromResultSet(rs);
-                    food.setSupply(rs.getInt("supply"));
-                    menu.add(food);
+             PreparedStatement stmt = conn.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
+            stmt.setInt(1, menu.getRestaurantId());
+            stmt.setString(2, menu.getTitle());
+            stmt.executeUpdate();
+            try (ResultSet generatedKeys = stmt.getGeneratedKeys()) {
+                if (generatedKeys.next()) {
+                    return generatedKeys.getInt(1);
+                } else {
+                    throw new SQLException("Creating menu failed, no ID obtained.");
                 }
             }
         }
-        return menu;
     }
 
-    public boolean updateFoodItem(Food food, int supply) throws SQLException {
-        String sql = "UPDATE " + FOOD_ITEMS_TABLE + " SET name = ?, image_base64 = ?, description = ?, price = ?, category = ? WHERE id = ?";
+    /**
+     * Deletes a titled menu and all its item associations.
+     */
+    public boolean deleteMenuById(int menuId) throws SQLException {
+        // The database schema should be set up with ON DELETE CASCADE
+        // for the foreign key in menu_items. If so, this is all that's needed.
+        String sql = "DELETE FROM " + MENUS_TABLE + " WHERE id = ?";
         try (Connection conn = DatabaseManager.getConnection();
              PreparedStatement stmt = conn.prepareStatement(sql)) {
-            stmt.setString(1, food.getName());
-            stmt.setString(2, food.getImageBase64());
-            stmt.setString(3, food.getDescription());
-            stmt.setInt(4, food.getPrice());
-            stmt.setString(5, food.getCategory().getValue());
-            stmt.setInt(6, food.getId());
-
-            updateMenuItemSupply(food.getRestaurantId(), food.getId(), supply);
-
+            stmt.setInt(1, menuId);
             return stmt.executeUpdate() > 0;
         }
     }
 
-    public void updateMenuItemSupply(int restaurantId, int foodId, int supply) throws SQLException {
-        String menuTableName = "menu_" + restaurantId;
-        String sql = "UPDATE " + menuTableName + " SET supply = ? WHERE food_item_id = ?";
+    /**
+     * Adds an existing food item from the master list to a specific titled menu.
+     */
+    public void addFoodItemToMenu(int menuId, int foodItemId) throws SQLException {
+        String sql = "INSERT INTO " + MENU_ITEMS_TABLE + " (menu_id, food_item_id) VALUES (?, ?)";
         try (Connection conn = DatabaseManager.getConnection();
              PreparedStatement stmt = conn.prepareStatement(sql)) {
-            stmt.setInt(1, supply);
-            stmt.setInt(2, foodId);
+            stmt.setInt(1, menuId);
+            stmt.setInt(2, foodItemId);
             stmt.executeUpdate();
         }
     }
 
+    /**
+     * Updates an existing food item in the master list.
+     */
+    public boolean updateFoodItem(Food food) throws SQLException {
+        String sql = "UPDATE " + FOOD_ITEMS_TABLE + " SET name = ?, description = ?, price = ?, supply = ?, category = ?, image_base64 = ? WHERE id = ?";
+        try (Connection conn = DatabaseManager.getConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+            stmt.setString(1, food.getName());
+            stmt.setString(2, food.getDescription());
+            stmt.setInt(3, food.getPrice());
+            stmt.setInt(4, food.getSupply());
+            stmt.setString(5, food.getCategory().getValue());
+            stmt.setString(6, food.getImageBase64());
+            stmt.setInt(7, food.getId());
+            return stmt.executeUpdate() > 0;
+        }
+    }
+
+    /**
+     * Deletes a food item from the master list.
+     */
     public boolean deleteFoodItem(int foodId) throws SQLException {
         String sql = "DELETE FROM " + FOOD_ITEMS_TABLE + " WHERE id = ?";
         try (Connection conn = DatabaseManager.getConnection();
              PreparedStatement stmt = conn.prepareStatement(sql)) {
             stmt.setInt(1, foodId);
+            return stmt.executeUpdate() > 0;
+        }
+    }
+
+    public boolean menuTitleExists(int restaurantId, String title) throws SQLException {
+        return getMenuByTitle(restaurantId, title) != null;
+    }
+
+    public boolean isItemInMenu(int menuId, int foodItemId) throws SQLException {
+        String sql = "SELECT COUNT(*) FROM " + MENU_ITEMS_TABLE + " WHERE menu_id = ? AND food_item_id = ?";
+        try (Connection conn = DatabaseManager.getConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+            stmt.setInt(1, menuId);
+            stmt.setInt(2, foodItemId);
+            try (ResultSet rs = stmt.executeQuery()) {
+                if (rs.next()) {
+                    return rs.getInt(1) > 0;
+                }
+            }
+        }
+        return false;
+    }
+
+    public boolean isFoodItemInAnyMenu(int foodId) throws SQLException {
+        String sql = "SELECT COUNT(*) FROM " + MENU_ITEMS_TABLE + " WHERE food_item_id = ?";
+        try (Connection conn = DatabaseManager.getConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+            stmt.setInt(1, foodId);
+            try (ResultSet rs = stmt.executeQuery()) {
+                if (rs.next()) {
+                    return rs.getInt(1) > 0;
+                }
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Removes a food item from a specific titled menu.
+     */
+    public boolean removeItemFromMenu(int menuId, int foodItemId) throws SQLException {
+        String sql = "DELETE FROM " + MENU_ITEMS_TABLE + " WHERE menu_id = ? AND food_item_id = ?";
+        try (Connection conn = DatabaseManager.getConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+            stmt.setInt(1, menuId);
+            stmt.setInt(2, foodItemId);
             return stmt.executeUpdate() > 0;
         }
     }
@@ -233,6 +260,8 @@ public class RestaurantDAO {
         food.setDescription(rs.getString("description"));
         food.setPrice(rs.getInt("price"));
         food.setCategory(FoodCategory.fromString(rs.getString("category")));
+        food.setSupply(rs.getInt("supply"));
+        food.setRestaurantId(rs.getInt("restaurant_id"));
         return food;
     }
 
@@ -279,22 +308,6 @@ public class RestaurantDAO {
         return null;
     }
 
-    public boolean foodItemExistsByName(int restaurantId, String name) throws SQLException {
-        String sql = "SELECT COUNT(*) FROM " + FOOD_ITEMS_TABLE + " f " +
-                "JOIN menu_" + restaurantId + " m ON f.id = m.food_item_id " +
-                "WHERE f.name = ?";
-        try (Connection conn = DatabaseManager.getConnection();
-             PreparedStatement stmt = conn.prepareStatement(sql)) {
-            stmt.setString(1, name);
-            try (ResultSet rs = stmt.executeQuery()) {
-                if (rs.next()) {
-                    return rs.getInt(1) > 0;
-                }
-            }
-        }
-        return false;
-    }
-
     public boolean isRestaurantPending(int restaurantId) throws SQLException {
         String sql = "SELECT COUNT(*) FROM " + PENDING_RESTAURANTS_TABLE + " WHERE id = ?";
         try (Connection conn = DatabaseManager.getConnection();
@@ -326,6 +339,25 @@ public class RestaurantDAO {
         return restaurants;
     }
 
+    public Menu getMenuByTitle(int restaurantId, String title) throws SQLException {
+        String sql = "SELECT * FROM " + MENUS_TABLE + " WHERE restaurant_id = ? AND title = ?";
+        try (Connection conn = DatabaseManager.getConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+            stmt.setInt(1, restaurantId);
+            stmt.setString(2, title);
+            try (ResultSet rs = stmt.executeQuery()) {
+                if (rs.next()) {
+                    Menu menu = new Menu();
+                    menu.setId(rs.getInt("id"));
+                    menu.setRestaurantId(rs.getInt("restaurant_id"));
+                    menu.setTitle(rs.getString("title"));
+                    return menu;
+                }
+            }
+        }
+        return null;
+    }
+
     public boolean isFoodItemInActiveOrder(int foodId) throws SQLException {
         // This is a placeholder. You'll need to implement the actual logic
         // to check if the food item is in an order that is not yet completed.
@@ -336,24 +368,5 @@ public class RestaurantDAO {
         // This is a placeholder. You'll need to implement the actual logic to check
         // if any food item in the menu is part of an active order.
         return false;
-    }
-
-    public boolean doesMenuExist(int restaurantId) throws SQLException {
-        String menuTableName = "menu_" + restaurantId;
-        try (Connection conn = DatabaseManager.getConnection()) {
-            DatabaseMetaData meta = conn.getMetaData();
-            try (ResultSet rs = meta.getTables(null, null, menuTableName, new String[]{"TABLE"})) {
-                return rs.next();
-            }
-        }
-    }
-
-    public void deleteMenuTable(int restaurantId) throws SQLException {
-        String menuTableName = "menu_" + restaurantId;
-        String sql = "DROP TABLE IF EXISTS " + menuTableName;
-        try (Connection conn = DatabaseManager.getConnection();
-             Statement stmt = conn.createStatement()) {
-            stmt.execute(sql);
-        }
     }
 }

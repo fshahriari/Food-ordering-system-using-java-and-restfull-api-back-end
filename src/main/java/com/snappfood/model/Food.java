@@ -29,6 +29,7 @@ public class Food {
     @SerializedName("category")
     private FoodCategory category;
 
+    @SerializedName("supply")
     private int supply;
 
     /**
@@ -47,8 +48,9 @@ public class Food {
      * @param restaurantId The ID of the restaurant this food item belongs to (for context).
      * @param price The price of the food item.
      * @param category The category of the food item (e.g., "Fast Food").
+     * @param supply The available stock of this food item.
      */
-    public Food(int id, String name, String imageBase64, String description, int restaurantId, int price, FoodCategory category) {
+    public Food(int id, String name, String imageBase64, String description, int restaurantId, int price, FoodCategory category, int supply) {
         this.id = id;
         this.name = name;
         this.imageBase64 = imageBase64;
@@ -56,6 +58,7 @@ public class Food {
         this.restaurantId = restaurantId;
         this.price = price;
         this.category = category;
+        this.supply = supply;
     }
 
 

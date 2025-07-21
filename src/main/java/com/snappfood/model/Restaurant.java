@@ -30,16 +30,16 @@ public class Restaurant {
 
     private String category;
 
-    private ConfirmStatus confirmStatus;
-
     @SerializedName("tax_fee")
     private int taxFee;
 
     @SerializedName("additional_fee")
     private int additionalFee;
 
-    //TODO This is for in-memory representation; how it's stored in the DB might differ.
-    private Map<Food, Integer> menu;
+    private List<Food> masterFoodList;
+
+    private List<Menu> menus;
+
 
     private List<String> sellerPhoneNumbers;
 
@@ -61,12 +61,11 @@ public class Restaurant {
      * @param phoneNumber The contact phone number.
      * @param workingHours The operating hours of the restaurant.
      * @param category The category of food the restaurant serves.
-     * @param menu A map representing the menu, with Food items and their counts.
      * @param sellerPhoneNumbers A list of phone numbers for the sellers who own the restaurant.
      * @param additionalFee the additional fee for each order of the restaurant
      * @param taxFee the constant fee for each order of the restaurant
      */
-    public Restaurant(int id, String name, String logoBase64, String address, String phoneNumber, String workingHours, String category, int taxFee, int additionalFee, Map<Food, Integer> menu, List<String> sellerPhoneNumbers) {
+    public Restaurant(int id, String name, String logoBase64, String address, String phoneNumber, String workingHours, String category, int taxFee, int additionalFee, List<String> sellerPhoneNumbers) {
         this.id = id;
         this.name = name;
         this.logoBase64 = logoBase64;
@@ -76,9 +75,7 @@ public class Restaurant {
         this.category = category;
         this.taxFee = taxFee;
         this.additionalFee = additionalFee;
-        this.menu = menu;
         this.sellerPhoneNumbers = sellerPhoneNumbers;
-        this.confirmStatus = ConfirmStatus.PENDING;
     }
 
 
@@ -138,14 +135,6 @@ public class Restaurant {
         this.category = category;
     }
 
-    public Map<Food, Integer> getMenu() {
-        return menu;
-    }
-
-    public void setMenu(Map<Food, Integer> menu) {
-        this.menu = menu;
-    }
-
     public List<String> getSellerPhoneNumbers() {
         return sellerPhoneNumbers;
     }
@@ -169,11 +158,19 @@ public class Restaurant {
         this.additionalFee = additionalFee;
     }
 
-    public ConfirmStatus getConfirmStatus() {
-        return confirmStatus;
+    public List<Food> getMasterFoodList() {
+        return masterFoodList;
     }
 
-    public void setConfirmStatus(ConfirmStatus confirmStatus) {
-        this.confirmStatus = confirmStatus;
+    public void setMasterFoodList(List<Food> masterFoodList) {
+        this.masterFoodList = masterFoodList;
+    }
+
+    public List<Menu> getMenus() {
+        return menus;
+    }
+
+    public void setMenus(List<Menu> menus) {
+        this.menus = menus;
     }
 }

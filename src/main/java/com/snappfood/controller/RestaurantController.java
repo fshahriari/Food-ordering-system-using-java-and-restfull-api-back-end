@@ -3,10 +3,7 @@ package com.snappfood.controller;
 import com.snappfood.dao.RestaurantDAO;
 import com.snappfood.dao.UserDAO;
 import com.snappfood.exception.*;
-import com.snappfood.model.Food;
-import com.snappfood.model.Restaurant;
-import com.snappfood.model.Role;
-import com.snappfood.model.User;
+import com.snappfood.model.*;
 
 import java.sql.SQLException;
 import java.util.HashMap;
@@ -22,25 +19,47 @@ public class RestaurantController {
     private final RestaurantDAO restaurantDAO = new RestaurantDAO();
     private final UserDAO userDAO = new UserDAO();
 
+
     private static final int MAX_RESTAURANT_CREATION_REQUESTS = 3;
-    private static final long CREATION_RATE_LIMIT_WINDOW_MS = 3600000;
+    private static final long CREATION_RATE_LIMIT_WINDOW_MS = 3600000; // 1 hour
     private final Map<Integer, RequestTracker> restaurantCreationTrackers = new ConcurrentHashMap<>();
 
     private static final int MAX_FETCH_RESTAURANTS_REQUESTS = 20;
-    private static final long FETCH_RATE_LIMIT_WINDOW_MS = 60000;
+    private static final long FETCH_RATE_LIMIT_WINDOW_MS = 60000; // 1 minute
     private final Map<Integer, RequestTracker> fetchRestaurantsTrackers = new ConcurrentHashMap<>();
 
     private static final int MAX_ADD_FOOD_REQUESTS = 30;
-    private static final long ADD_FOOD_RATE_LIMIT_WINDOW_MS = 3600000;
+    private static final long ADD_FOOD_RATE_LIMIT_WINDOW_MS = 3600000; // 1 hour
     private final Map<Integer, RequestTracker> addFoodItemTrackers = new ConcurrentHashMap<>();
 
     private static final int MAX_UPDATE_RESTAURANT_REQUESTS = 10;
-    private static final long UPDATE_RESTAURANT_RATE_LIMIT_WINDOW_MS = 60000;
+    private static final long UPDATE_RESTAURANT_RATE_LIMIT_WINDOW_MS = 60000; // 1 minute
     private final Map<Integer, RequestTracker> updateRestaurantTrackers = new ConcurrentHashMap<>();
 
     private static final int MAX_UPDATE_FOOD_REQUESTS = 20;
     private static final long UPDATE_FOOD_RATE_LIMIT_WINDOW_MS = 60000; // 1 minute
     private final Map<Integer, RequestTracker> updateFoodItemTrackers = new ConcurrentHashMap<>();
+
+    private static final int MAX_DELETE_FOOD_REQUESTS = 15;
+    private static final long DELETE_FOOD_RATE_LIMIT_WINDOW_MS = 3600000; // 1 hour
+    private final Map<Integer, RequestTracker> deleteFoodItemTrackers = new ConcurrentHashMap<>();
+
+    private static final int MAX_CREATE_MENU_REQUESTS = 10;
+    private static final long CREATE_MENU_RATE_LIMIT_WINDOW_MS = 3600000; // 1 hour
+    private final Map<Integer, RequestTracker> createMenuTrackers = new ConcurrentHashMap<>();
+
+    private static final int MAX_DELETE_MENU_REQUESTS = 10;
+    private static final long DELETE_MENU_RATE_LIMIT_WINDOW_MS = 3600000; // 1 hour
+    private final Map<Integer, RequestTracker> deleteMenuTrackers = new ConcurrentHashMap<>();
+
+    private static final int MAX_ADD_ITEM_TO_MENU_REQUESTS = 50;
+    private static final long ADD_ITEM_TO_MENU_RATE_LIMIT_WINDOW_MS = 3600000; // 1 hour
+    private final Map<Integer, RequestTracker> addItemToMenuTrackers = new ConcurrentHashMap<>();
+
+    private static final int MAX_REMOVE_ITEM_FROM_MENU_REQUESTS = 50;
+    private static final long REMOVE_ITEM_FROM_MENU_RATE_LIMIT_WINDOW_MS = 3600000; // 1 hour
+    private final Map<Integer, RequestTracker> removeItemFromMenuTrackers = new ConcurrentHashMap<>();
+
 
 
     public Map<String, Object> handleCreateRestaurant(Restaurant restaurant, Integer sellerId) throws Exception {
@@ -111,79 +130,279 @@ public class RestaurantController {
     }
 
     /**
-     * Handles adding a new food item to a restaurant's menu.
-     * @param restaurantId The ID of the restaurant to add the food to.
-     * @param food The food item from the request.
-     * @param sellerId The ID of the authenticated seller.
-     * @return A map containing the newly created food item.
-     * @throws Exception for validation, authorization, or database errors.
+     * Handles adding an item to the restaurant's master food list.
+     * Corresponds to POST /restaurants/{id}/item
      */
-    public Map<String, Object> handleAddFoodItem(Integer restaurantId, Food food, Integer sellerId) throws Exception {
-        //401
-        if (sellerId == null) {
-            throw new UnauthorizedException("You must be logged in to add a food item.");
-        }
+    public Map<String, Object> handleAddFoodItemToMasterList(int restaurantId, int sellerId, Food food) throws Exception {
+        User seller = authorizeSellerAction(sellerId, restaurantId);
 
-        //429
-        RequestTracker tracker = addFoodItemTrackers.computeIfAbsent(sellerId, k -> new RequestTracker(MAX_ADD_FOOD_REQUESTS, ADD_FOOD_RATE_LIMIT_WINDOW_MS));
-        if (!tracker.allowRequest()) {
-            throw new TooManyRequestsException("You are adding food items too quickly. Please try again later.");
-        }
-
-        //403
-        User seller = userDAO.findUserById(sellerId);
-        if (seller == null || seller.getRole() != Role.SELLER) {
-            throw new ForbiddenException("Only sellers can add food items.");
-        }
-
-        if (!restaurantDAO.doesMenuExist(restaurantId)) {
-            throw new ConflictException("A menu has not been created for this restaurant. Please create a menu first.");
-        }
-
-        if (restaurantDAO.isRestaurantPending(restaurantId)) {
-            throw new ForbiddenException("Cannot add food items to a restaurant that is pending approval.");
-        }
-
-        // Ownership Check
-        List<String> sellerPhoneNumbers = restaurantDAO.getSellersForRestaurant(restaurantId);
-        if (!sellerPhoneNumbers.contains(seller.getPhone())) {
-            throw new ForbiddenException("You do not have permission to modify this restaurant's menu.");
-        }
-
-        //400 n 404
-        if (restaurantDAO.getRestaurantById(restaurantId) == null) {
-            throw new ResourceNotFoundException("Restaurant with ID " + restaurantId + " not found.");
-        }
-        if (food.getName() == null || food.getName().trim().isEmpty()) {
+        // Validate food item details
+        if (food == null || food.getName() == null || food.getName().trim().isEmpty()) {
             throw new InvalidInputException("Food name is required.");
         }
-        if (food.getPrice() < 0) {
-            throw new InvalidInputException("Price cannot be negative.");
-        }
-        if (food.getSupply() < 0) {
-            throw new InvalidInputException("Supply cannot be negative.");
-        }
-        if (food.getCategory() == null) {
-            throw new InvalidInputException("A valid food category is required.");
-        }
-
-        //409
-        List<Food> currentMenu = restaurantDAO.getMenuForRestaurant(restaurantId);
-        for (Food menuItem : currentMenu) {
-            if (menuItem.getName().equalsIgnoreCase(food.getName().trim())) {
-                throw new ConflictException("A food item with this name already exists in this restaurant's menu.");
-            }
+        if (food.getPrice() < 0 || food.getSupply() < 0) {
+            throw new InvalidInputException("Price and supply cannot be negative.");
         }
 
         food.setRestaurantId(restaurantId);
-        int newFoodId = restaurantDAO.addFoodItem(food, food.getSupply());
-        food.setId(newFoodId);
+        int foodId = restaurantDAO.addFoodItem(food);
+        food.setId(foodId);
 
         Map<String, Object> response = new HashMap<>();
         response.put("status", 200);
-        response.put("message", "Food item added successfully.");
+        response.put("message", "Food item added to the master list successfully.");
         response.put("food_item", food);
         return response;
+    }
+
+    /**
+     * Handles adding an existing food item from the master list to a titled menu.
+     * Corresponds to PUT /restaurants/{id}/menu/{title}
+     */
+    public Map<String, Object> handleAddItemToTitledMenu(int restaurantId, int sellerId, String menuTitle, Integer foodItemId) throws Exception {
+        User seller = authorizeSellerAction(sellerId, restaurantId);
+
+        if (foodItemId == null) {
+            throw new InvalidInputException("item_id is required in the request body.");
+        }
+
+        Menu menu = restaurantDAO.getMenuByTitle(restaurantId, menuTitle);
+        if (menu == null) {
+            throw new ResourceNotFoundException("Menu with title '" + menuTitle + "' not found.");
+        }
+
+        Food food = restaurantDAO.getFoodItemById(foodItemId);
+        if (food == null || food.getRestaurantId() != restaurantId) {
+            throw new ResourceNotFoundException("Food item with ID " + foodItemId + " not found in this restaurant's master list.");
+        }
+
+        if (restaurantDAO.isItemInMenu(menu.getId(), foodItemId)) {
+            throw new ConflictException("This food item is already in the menu.");
+        }
+
+        restaurantDAO.addFoodItemToMenu(menu.getId(), foodItemId);
+
+        Map<String, Object> response = new HashMap<>();
+        response.put("status", 200);
+        response.put("message", "Food item added to menu '" + menuTitle + "' successfully.");
+        return response;
+    }
+
+    /**
+     * Handles updating a food item in the master list.
+     * Corresponds to PUT /restaurants/{id}/item/{item_id}
+     */
+    public Map<String, Object> handleUpdateMasterFoodItem(int restaurantId, int itemId, int sellerId, Food updatedFood) throws Exception {
+        User seller = authorizeSellerAction(sellerId, restaurantId);
+
+        Food existingFood = restaurantDAO.getFoodItemById(itemId);
+        if (existingFood == null || existingFood.getRestaurantId() != restaurantId) {
+            throw new ResourceNotFoundException("Food item with ID " + itemId + " not found in this restaurant.");
+        }
+
+        boolean isUpdated = false;
+        if (updatedFood.getName() != null && !updatedFood.getName().trim().isEmpty()) {
+            if (updatedFood.getName().equals(existingFood.getName())) {
+                throw new InvalidInputException("New name must be different from the current name.");
+            }
+            existingFood.setName(updatedFood.getName());
+            isUpdated = true;
+        }
+
+        if (updatedFood.getImageBase64() != null && !updatedFood.getImageBase64().trim().isEmpty()) {
+            if (updatedFood.getImageBase64().equals(updatedFood.getImageBase64())) {
+                throw new InvalidInputException("New image must be different from the current image.");
+            }
+            if (GenerallController.isValidImage(updatedFood.getImageBase64())) {
+                throw new InvalidInputException("Invalid image format. Please provide a valid Base64 encoded image.");
+            }
+            existingFood.setImageBase64(updatedFood.getImageBase64());
+            isUpdated = true;
+        }
+
+        if (updatedFood.getDescription() != null && !updatedFood.getDescription().trim().isEmpty()) {
+            if (updatedFood.getDescription().equals(existingFood.getDescription())) {
+                throw new InvalidInputException("New description must be different from the current description.");
+            }
+            if (updatedFood.getDescription().length() > 200) {
+                throw new InvalidInputException("Description cannot exceed 200 characters.");
+            }
+            existingFood.setDescription(updatedFood.getDescription());
+            isUpdated = true;
+        }
+
+        if (updatedFood.getPrice() != 0) {
+            if (updatedFood.getPrice() < 0) {
+                throw new InvalidInputException("Price cannot be negative.");
+            }
+            if (updatedFood.getPrice() == existingFood.getPrice()) {
+                throw new InvalidInputException("New price must be different from the current price.");
+            }
+            existingFood.setPrice(updatedFood.getPrice());
+            isUpdated = true;
+        }
+
+        if (updatedFood.getSupply() != 0) {
+            if (updatedFood.getSupply() < 0) {
+                throw new InvalidInputException("Supply cannot be negative.");
+            }
+            if (updatedFood.getSupply() == existingFood.getSupply()) {
+                throw new InvalidInputException("New supply must be different from the current supply.");
+            }
+            existingFood.setSupply(updatedFood.getSupply());
+            isUpdated = true;
+        }
+
+        if (updatedFood.getCategory() != null) {
+            if (updatedFood.getCategory().equals(FoodCategory.UNDEFINED)
+                || updatedFood.getCategory().equals(existingFood.getCategory())) {
+                throw new InvalidInputException("New category must be different from the current category.");
+            }
+            existingFood.setCategory(updatedFood.getCategory());
+            isUpdated = true;
+        }
+
+        if (!isUpdated) {
+            throw new InvalidInputException("No update data provided.");
+        }
+
+        restaurantDAO.updateFoodItem(existingFood);
+
+        Map<String, Object> response = new HashMap<>();
+        response.put("status", 200);
+        response.put("message", "Food item updated successfully.");
+        response.put("food_item", existingFood);
+        return response;
+    }
+
+    /**
+     * Handles deleting a food item from the master list.
+     * Corresponds to DELETE /restaurants/{id}/item/{item_id}
+     */
+    public Map<String, Object> handleDeleteMasterFoodItem(int restaurantId, int itemId, int sellerId) throws Exception {
+        User seller = authorizeSellerAction(sellerId, restaurantId);
+
+        Food food = restaurantDAO.getFoodItemById(itemId);
+        if (food == null || food.getRestaurantId() != restaurantId) {
+            throw new ResourceNotFoundException("Food item with ID " + itemId + " not found in this restaurant.");
+        }
+
+        if (restaurantDAO.isFoodItemInAnyMenu(itemId)) {
+            throw new ConflictException("Cannot delete food item. It is currently part of one or more menus. Please remove it from all menus first.");
+        }
+
+        restaurantDAO.deleteFoodItem(itemId);
+
+        Map<String, Object> response = new HashMap<>();
+        response.put("status", 200);
+        response.put("message", "Food item deleted from master list successfully.");
+        return response;
+    }
+
+
+    /**
+     * Handles the creation of a new titled menu for a restaurant.
+     * Corresponds to POST /restaurants/{id}/menu
+     */
+    public Map<String, Object> handleCreateMenu(int restaurantId, int sellerId, String title) throws Exception {
+        User seller = authorizeSellerAction(sellerId, restaurantId);
+
+        if (title == null || title.trim().isEmpty()) {
+            throw new InvalidInputException("Menu title is required.");
+        }
+
+        if (restaurantDAO.menuTitleExists(restaurantId, title)) {
+            throw new ConflictException("A menu with this title already exists for this restaurant.");
+        }
+
+        Menu newMenu = new Menu(restaurantId, title);
+        int menuId = restaurantDAO.createMenu(newMenu);
+        newMenu.setId(menuId);
+
+        Map<String, Object> response = new HashMap<>();
+        response.put("status", 200);
+        response.put("message", "Menu created successfully.");
+        response.put("menu", newMenu);
+        return response;
+    }
+
+    /**
+     * Handles deleting a titled menu.
+     * Corresponds to DELETE /restaurants/{id}/menu/{title}
+     */
+    public Map<String, Object> handleDeleteTitledMenu(int restaurantId, int sellerId, String menuTitle) throws Exception {
+        User seller = authorizeSellerAction(sellerId, restaurantId);
+
+        Menu menu = restaurantDAO.getMenuByTitle(restaurantId, menuTitle);
+        if (menu == null) {
+            throw new ResourceNotFoundException("Menu with title '" + menuTitle + "' not found.");
+        }
+
+        restaurantDAO.deleteMenuById(menu.getId());
+
+        Map<String, Object> response = new HashMap<>();
+        response.put("status", 200);
+        response.put("message", "Menu '" + menuTitle + "' deleted successfully.");
+        return response;
+    }
+
+    /**
+     * Handles removing a food item from a specific titled menu.
+     * Corresponds to DELETE /restaurants/{id}/menu/{title}/{item_id}
+     */
+    public Map<String, Object> handleRemoveItemFromTitledMenu(int restaurantId, int sellerId, String menuTitle, int itemId) throws Exception {
+        User seller = authorizeSellerAction(sellerId, restaurantId);
+
+        Menu menu = restaurantDAO.getMenuByTitle(restaurantId, menuTitle);
+        if (menu == null) {
+            throw new ResourceNotFoundException("Menu with title '" + menuTitle + "' not found.");
+        }
+
+        if (!restaurantDAO.isItemInMenu(menu.getId(), itemId)) {
+            throw new ResourceNotFoundException("Food item with ID " + itemId + " not found in this menu.");
+        }
+
+        //TODO You might want to add a check for active orders here in the future
+
+        restaurantDAO.removeItemFromMenu(menu.getId(), itemId);
+
+        Map<String, Object> response = new HashMap<>();
+        response.put("status", 200);
+        response.put("message", "Food item removed from menu '" + menuTitle + "' successfully.");
+        return response;
+    }
+
+
+
+    /**
+     * A helper method to centralize seller authorization and ownership checks.
+     * @return The authorized User object if successful.
+     * @throws Exception if authorization fails.
+     */
+    private User authorizeSellerAction(int sellerId, int restaurantId) throws Exception {
+        if (sellerId <= 0) {
+            throw new UnauthorizedException("You must be logged in to perform this action.");
+        }
+
+        User seller = userDAO.findUserById(sellerId);
+        if (seller == null || seller.getRole() != Role.SELLER) {
+            throw new ForbiddenException("Only sellers can perform this action.");
+        }
+
+        if (restaurantDAO.isRestaurantPending(restaurantId)) {
+            throw new ForbiddenException("Action cannot be performed on a restaurant that is pending approval.");
+        }
+
+        Restaurant restaurant = restaurantDAO.getRestaurantById(restaurantId);
+        if (restaurant == null) {
+            throw new ResourceNotFoundException("Restaurant with ID " + restaurantId + " not found.");
+        }
+
+        if (!restaurant.getSellerPhoneNumbers().contains(seller.getPhone())) {
+            throw new ForbiddenException("You do not have permission to modify this restaurant.");
+        }
+
+        return seller;
     }
 
     /**
@@ -195,12 +414,16 @@ public class RestaurantController {
      * @throws Exception for any validation, authorization, or database errors.
      */
     public Map<String, Object> handleUpdateRestaurant(Integer restaurantId, Restaurant updateData, Integer sellerId) throws Exception {
-        //401
-        if (sellerId == null) {
-            throw new UnauthorizedException("You must be logged in to update a restaurant.");
+        authorizeSellerAction(sellerId, restaurantId);
+
+        Restaurant existingRestaurant = restaurantDAO.getRestaurantById(restaurantId); // Already fetched in authorize
+
+        boolean isUpdated = false;
+        if (updateData.getName() != null && !updateData.getName().trim().isEmpty()) {
+            existingRestaurant.setName(updateData.getName());
+            isUpdated = true;
         }
 
-        //429
         RequestTracker tracker = updateRestaurantTrackers.computeIfAbsent(sellerId, k -> new RequestTracker(MAX_UPDATE_RESTAURANT_REQUESTS, UPDATE_RESTAURANT_RATE_LIMIT_WINDOW_MS));
         if (!tracker.allowRequest()) {
             throw new TooManyRequestsException("You are updating this restaurant too frequently. Please try again later.");
@@ -213,14 +436,11 @@ public class RestaurantController {
         }
 
         if (restaurantDAO.isRestaurantPending(restaurantId)) {
-            throw new ForbiddenException("Cannot update food items for a restaurant that is pending approval.");
+            throw new ForbiddenException("Cannot update a restaurant that is pending approval.");
         }
 
-        if (!restaurantDAO.doesMenuExist(restaurantId)) {
-            throw new ConflictException("A menu has not been created for this restaurant. Please create a menu first.");
-        }
         //404
-        Restaurant existingRestaurant = restaurantDAO.getRestaurantById(restaurantId);
+        existingRestaurant = restaurantDAO.getRestaurantById(restaurantId);
         if (existingRestaurant == null) {
             throw new ResourceNotFoundException("Restaurant with ID " + restaurantId + " not found.");
         }
@@ -256,6 +476,9 @@ public class RestaurantController {
             existingRestaurant.setTaxFee(updateData.getTaxFee());
         }
 
+        if (!isUpdated) {
+            throw new InvalidInputException("No update data provided.");
+        }
 
         boolean success = restaurantDAO.updateRestaurant(existingRestaurant);
         if (!success) {
@@ -274,250 +497,6 @@ public class RestaurantController {
         return null; // Placeholder
     }
 
-    /**
-     * Handles the logic for updating a food item.
-     * @param restaurantId The ID of the restaurant.
-     * @param itemId The ID of the food item to update.
-     * @param updatedFood A Food object with the new data.
-     * @param sellerId The ID of the authenticated seller.
-     * @return A map with a success message and the updated food item.
-     * @throws Exception for various error conditions.
-     */
-    public Map<String, Object> handleUpdateFoodItem(Integer restaurantId, Integer itemId, Food updatedFood, Integer sellerId) throws Exception {
-        if (sellerId == null) {
-            throw new UnauthorizedException("You must be logged in to update a food item.");
-        }
-
-        RequestTracker tracker = updateFoodItemTrackers.computeIfAbsent(sellerId, k -> new RequestTracker(MAX_UPDATE_FOOD_REQUESTS, UPDATE_FOOD_RATE_LIMIT_WINDOW_MS));
-        if (!tracker.allowRequest()) {
-            throw new TooManyRequestsException("You are updating food items too frequently. Please try again later.");
-        }
-
-        User seller = userDAO.findUserById(sellerId);
-        if (seller == null || seller.getRole() != Role.SELLER) {
-            throw new ForbiddenException("Only sellers can update food items.");
-        }
-
-        if (!restaurantDAO.doesMenuExist(restaurantId)) {
-            throw new ConflictException("A menu has not been created for this restaurant. Please create a menu first.");
-        }
-
-        if (restaurantId <= 0 || itemId <= 0) {
-            throw new InvalidInputException("Invalid restaurant or item ID.");
-        }
-
-        if (restaurantDAO.isRestaurantPending(restaurantId)) {
-            throw new ForbiddenException("Cannot update food items for a restaurant that is pending approval.");
-        }
-
-        Restaurant restaurant = restaurantDAO.getRestaurantById(restaurantId);
-        if (restaurant == null) {
-            throw new ResourceNotFoundException("Restaurant with ID " + restaurantId + " not found.");
-        }
-        if (!restaurant.getSellerPhoneNumbers().contains(seller.getPhone())) {
-            throw new ForbiddenException("You do not have permission to modify this restaurant's menu.");
-        }
-
-        Food existingFood = restaurantDAO.getFoodItemById(itemId);
-        if (existingFood == null || existingFood.getRestaurantId() != restaurantId) {
-            throw new ResourceNotFoundException("Food item with ID " + itemId + " not found in this restaurant.");
-        }
-
-        boolean isUpdated = false;
-        if (updatedFood.getName() != null && !updatedFood.getName().trim().isEmpty() && !updatedFood.getName().equals(existingFood.getName())) {
-            // Check for name conflict before updating
-            if (restaurantDAO.foodItemExistsByName(restaurantId, updatedFood.getName())) {
-                throw new ConflictException("A food item with this name already exists in this restaurant's menu.");
-            }
-            existingFood.setName(updatedFood.getName());
-            isUpdated = true;
-        }
-        if (updatedFood.getDescription() != null && !updatedFood.getDescription().equals(existingFood.getDescription())) {
-            existingFood.setDescription(updatedFood.getDescription());
-            isUpdated = true;
-        }
-        if (updatedFood.getPrice() >= 0 && updatedFood.getPrice() != existingFood.getPrice()) {
-            existingFood.setPrice(updatedFood.getPrice());
-            isUpdated = true;
-        }
-        if (updatedFood.getSupply() >= 0 && updatedFood.getSupply() != existingFood.getSupply()) {
-            existingFood.setSupply(updatedFood.getSupply());
-            isUpdated = true;
-        }
-        if (updatedFood.getImageBase64() != null && !updatedFood.getImageBase64().equals(existingFood.getImageBase64())) {
-            existingFood.setImageBase64(updatedFood.getImageBase64());
-            isUpdated = true;
-        }
-        if (updatedFood.getCategory() != null && !updatedFood.getCategory().equals(existingFood.getCategory())) {
-            existingFood.setCategory(updatedFood.getCategory());
-            isUpdated = true;
-        }
-
-        if (!isUpdated) {
-            throw new InvalidInputException("No changes detected. Please provide new data to update.");
-        }
-
-
-        boolean success = restaurantDAO.updateFoodItem(existingFood, existingFood.getSupply());
-        if (!success) {
-            throw new InternalServerErrorException("Failed to update food item.");
-        }
-
-        Map<String, Object> response = new HashMap<>();
-        response.put("status", 200);
-        response.put("message", "Food item updated successfully.");
-        response.put("food_item", existingFood);
-        return response;
-    }
-
-    public Map<String, Object> handleDeleteFoodItem(Integer restaurantId, Integer itemId, Integer sellerId) throws Exception {
-        //401
-        if (sellerId == null) {
-            throw new UnauthorizedException("You must be logged in to delete a food item.");
-        }
-
-        User seller = userDAO.findUserById(sellerId);
-        if (seller == null || seller.getRole() != Role.SELLER) {
-            throw new ForbiddenException("Only sellers can delete food items.");
-        }
-
-        //400
-        if (restaurantId <= 0 || itemId <= 0) {
-            throw new InvalidInputException("Invalid restaurant or item ID.");
-        }
-
-        //409
-        if (!restaurantDAO.doesMenuExist(restaurantId)) {
-            throw new ConflictException("A menu has not been created for this restaurant. Please create a menu first.");
-        }
-
-        //403
-        Restaurant restaurant = restaurantDAO.getRestaurantById(restaurantId);
-        if (restaurant == null) {
-            throw new ResourceNotFoundException("Restaurant with ID " + restaurantId + " not found.");
-        }
-        if (!restaurant.getSellerPhoneNumbers().contains(seller.getPhone())) {
-            throw new ForbiddenException("You do not have permission to modify this restaurant's menu.");
-        }
-
-        //404
-        Food existingFood = restaurantDAO.getFoodItemById(itemId);
-        if (existingFood == null || existingFood.getRestaurantId() != restaurantId) {
-            throw new ResourceNotFoundException("Food item with ID " + itemId + " not found in this restaurant.");
-        }
-
-        //409
-        if (restaurantDAO.isFoodItemInActiveOrder(itemId)) {
-            throw new ConflictException("This food item cannot be deleted as it is part of an active order.");
-        }
-
-        boolean success = restaurantDAO.deleteFoodItem(itemId);
-        if (!success) {
-            throw new InternalServerErrorException("Failed to delete food item.");
-        }
-
-        Map<String, Object> response = new HashMap<>();
-        response.put("status", 200);
-        response.put("message", "Food item removed successfully.");
-        return response;
-    }
-
-    public Map<String, Object> handleCreateMenu(Integer restaurantId, Integer sellerId, String title) throws Exception {
-        //401
-        if (sellerId == null || sellerId <= 0) {
-            throw new UnauthorizedException("You must be logged in to create a menu.");
-        }
-
-        //403
-        User seller = userDAO.findUserById(sellerId);
-        if (seller == null || seller.getRole() != Role.SELLER) {
-            throw new ForbiddenException("Only sellers can create menus.");
-        }
-
-        //400
-        if (title == null || title.trim().isEmpty()) {
-            throw new InvalidInputException("Menu title is required.");
-        }
-
-        //404
-        if (restaurantId <= 0) {
-            throw new ResourceNotFoundException("Invalid restaurant ID, restaurant not found.");
-        }
-
-        //403
-        Restaurant restaurant = restaurantDAO.getRestaurantById(restaurantId);
-        if (restaurant == null) {
-            throw new ResourceNotFoundException("Restaurant with ID " + restaurantId + " not found.");
-        }
-        if (!restaurant.getSellerPhoneNumbers().contains(seller.getPhone())) {
-            throw new ForbiddenException("You do not have permission to create a menu for this restaurant.");
-        }
-        if (restaurantDAO.isRestaurantPending(restaurantId)) {
-            throw new ForbiddenException("Cannot create a menu for a restaurant that is pending approval.");
-        }
-
-        //409
-        if (restaurantDAO.doesMenuExist(restaurantId)) {
-            throw new ConflictException("A menu for this restaurant already exists.");
-        }
-
-        restaurantDAO.createMenuTableForRestaurant(restaurantId);
-
-        Map<String, Object> response = new HashMap<>();
-        response.put("status", 200);
-        response.put("message", "Menu created successfully.");
-        response.put("title", title);
-        return response;
-    }
-
-    public Map<String, Object> handleDeleteMenu(Integer restaurantId, Integer sellerId) throws Exception {
-        //401
-        if (sellerId == null) {
-            throw new UnauthorizedException("You must be logged in to delete a menu.");
-        }
-
-        //403
-        User seller = userDAO.findUserById(sellerId);
-        if (seller == null || seller.getRole() != Role.SELLER) {
-            throw new ForbiddenException("Only sellers can delete menus.");
-        }
-
-        //400
-        if (restaurantId <= 0) {
-            throw new InvalidInputException("Invalid restaurant ID.");
-        }
-
-        //403 n 404
-        Restaurant restaurant = restaurantDAO.getRestaurantById(restaurantId);
-        if (restaurant == null) {
-            throw new ResourceNotFoundException("Restaurant with ID " + restaurantId + " not found.");
-        }
-        if (!restaurant.getSellerPhoneNumbers().contains(seller.getPhone())) {
-            throw new ForbiddenException("You do not have permission to delete this menu.");
-        }
-        if (restaurantDAO.isRestaurantPending(restaurantId)) {
-            throw new ForbiddenException("Cannot delete a menu for a restaurant that is pending approval.");
-        }
-
-
-
-        //404
-        if (!restaurantDAO.doesMenuExist(restaurantId)) {
-            throw new ResourceNotFoundException("Menu not found for the specified restaurant.");
-        }
-
-        //409
-        if (restaurantDAO.isMenuItemInActiveOrder(restaurantId)) {
-            throw new ConflictException("Cannot delete menu: one or more items are part of an active order.");
-        }
-
-        restaurantDAO.deleteMenuTable(restaurantId);
-
-        Map<String, Object> response = new HashMap<>();
-        response.put("status", 200);
-        response.put("message", "Menu removed from restaurant successfully.");
-        return response;
-    }
 
     private static class RequestTracker {
         private int requestCount;
