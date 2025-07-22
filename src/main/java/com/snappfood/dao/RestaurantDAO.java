@@ -94,7 +94,7 @@ public class RestaurantDAO {
      * Adds a food item to a restaurant's master food list.
      */
     public int addFoodItem(Food food) throws SQLException {
-        String sql = "INSERT INTO " + FOOD_ITEMS_TABLE + " (name, image_base64, description, price, category, supply, restaurant_id) VALUES (?, ?, ?, ?, ?, ?, ?)";
+        String sql = "INSERT INTO " + FOOD_ITEMS_TABLE + " (name, image_base64, description, price, category, supply, restaurant_id, keywords) VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
         try (Connection conn = DatabaseManager.getConnection();
              PreparedStatement stmt = conn.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
             stmt.setString(1, food.getName());
@@ -104,6 +104,14 @@ public class RestaurantDAO {
             stmt.setString(5, food.getCategory().getValue());
             stmt.setInt(6, food.getSupply());
             stmt.setInt(7, food.getRestaurantId());
+
+            if (food.getKeywords() != null && !food.getKeywords().isEmpty()) {
+                stmt.setString(8, String.join(",", food.getKeywords()));
+            } else {
+                stmt.setNull(8, Types.VARCHAR);
+            }
+
+
             stmt.executeUpdate();
 
             try (ResultSet generatedKeys = stmt.getGeneratedKeys()) {

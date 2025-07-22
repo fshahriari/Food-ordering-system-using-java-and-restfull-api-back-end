@@ -1,6 +1,7 @@
 package com.snappfood.model;
 
 import com.google.gson.annotations.SerializedName;
+import java.util.List; // import this
 
 /**
  * Represents a food item available in a restaurant.
@@ -32,6 +33,9 @@ public class Food {
     @SerializedName("supply")
     private int supply;
 
+    @SerializedName("keywords")
+    private List<String> keywords;
+
     /**
      * Default constructor.
      */
@@ -49,8 +53,9 @@ public class Food {
      * @param price The price of the food item.
      * @param category The category of the food item (e.g., "Fast Food").
      * @param supply The available stock of this food item.
+     * @param keywords The keywords for the food item.
      */
-    public Food(int id, String name, String imageBase64, String description, int restaurantId, int price, FoodCategory category, int supply) {
+    public Food(int id, String name, String imageBase64, String description, int restaurantId, int price, FoodCategory category, int supply, List<String> keywords) { // Add keywords here
         this.id = id;
         this.name = name;
         this.imageBase64 = imageBase64;
@@ -59,6 +64,7 @@ public class Food {
         this.price = price;
         this.category = category;
         this.supply = supply;
+        this.keywords = keywords;
     }
 
 
@@ -78,4 +84,6 @@ public class Food {
     public void setCategory(FoodCategory category) { this.category = category; }
     public int getSupply() { return supply; }
     public void setSupply(int supply) { this.supply = supply; }
+    public List<String> getKeywords() { return keywords; }
+    public void setKeywords(List<String> keywords) { this.keywords = keywords; }
 }

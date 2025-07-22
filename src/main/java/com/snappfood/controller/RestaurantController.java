@@ -136,15 +136,26 @@ public class RestaurantController {
     public Map<String, Object> handleAddFoodItemToMasterList(int restaurantId, int sellerId, Food food) throws Exception {
         User seller = authorizeSellerAction(sellerId, restaurantId);
 
-        // Validate food item details
         if (food == null || food.getName() == null || food.getName().trim().isEmpty()) {
             throw new InvalidInputException("Food name is required.");
         }
+        if (food.getImageBase64() == null || food.getImageBase64().trim().isEmpty()
+            || !GenerallController.isValidImage(food.getImageBase64())) {
+            throw new InvalidInputException("Food image is required.");
+        }
+        if (food.getDescription() != null && food.getDescription().length() > 200) {
+            throw new InvalidInputException("Description cannot exceed 200 characters.");
+        }
+        if (food.getKeywords() == null || food.getKeywords().isEmpty()) {
+            throw new InvalidInputException("At least one keyword is required for the food item.");
+        }
+
         if (food.getPrice() < 0 || food.getSupply() < 0) {
             throw new InvalidInputException("Price and supply cannot be negative.");
         }
 
         food.setRestaurantId(restaurantId);
+        food.setCategory(FoodCategory.valueOf(restaurantDAO.getRestaurantById(restaurantId).getCategory()));
         int foodId = restaurantDAO.addFoodItem(food);
         food.setId(foodId);
 
