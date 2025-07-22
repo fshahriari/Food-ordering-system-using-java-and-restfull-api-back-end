@@ -124,7 +124,7 @@ public class RequestHandler implements Runnable {
                         }
                     }
                 }
-                if (method.equals("GET") && body != null && !body.isEmpty()) {
+                if ((method.equals("GET") || method.equals("DELETE")) && body != null && !body.isEmpty()) {
                     throw new UnsupportedMediaTypeException("GET requests cannot have a message body.");
                 }
 

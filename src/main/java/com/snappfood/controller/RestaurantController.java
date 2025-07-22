@@ -321,6 +321,15 @@ public class RestaurantController {
             throw new InvalidInputException("Menu title is required.");
         }
 
+        if (restaurantDAO.getRestaurantById(restaurantId) == null) {
+            throw new ResourceNotFoundException("Restaurant with ID " + restaurantId + " not found.");
+        }
+
+        RequestTracker tracker = createMenuTrackers.computeIfAbsent(sellerId, k -> new RequestTracker(MAX_CREATE_MENU_REQUESTS, CREATE_MENU_RATE_LIMIT_WINDOW_MS));
+        if (!tracker.allowRequest()) {
+            throw new TooManyRequestsException("You are creating menus too frequently. Please try again later.");
+        }
+
         if (restaurantDAO.menuTitleExists(restaurantId, title)) {
             throw new ConflictException("A menu with this title already exists for this restaurant.");
         }
