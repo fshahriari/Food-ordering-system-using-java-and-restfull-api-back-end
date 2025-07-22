@@ -264,12 +264,11 @@ public class RestaurantController {
             isUpdated = true;
         }
 
-        if (updatedFood.getCategory() != null) {
-            if (updatedFood.getCategory().equals(FoodCategory.UNDEFINED)
-                || updatedFood.getCategory().equals(existingFood.getCategory())) {
-                throw new InvalidInputException("New category must be different from the current category.");
+        if (updatedFood.getKeywords() != null && !updatedFood.getKeywords().isEmpty()) {
+            if (updatedFood.getKeywords().equals(existingFood.getKeywords())) {
+                throw new InvalidInputException("New keywords must be different from the current keywords.");
             }
-            existingFood.setCategory(updatedFood.getCategory());
+            existingFood.setKeywords(updatedFood.getKeywords());
             isUpdated = true;
         }
 

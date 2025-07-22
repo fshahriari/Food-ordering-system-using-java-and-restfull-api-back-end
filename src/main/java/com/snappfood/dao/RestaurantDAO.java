@@ -176,7 +176,7 @@ public class RestaurantDAO {
      * Updates an existing food item in the master list.
      */
     public boolean updateFoodItem(Food food) throws SQLException {
-        String sql = "UPDATE " + FOOD_ITEMS_TABLE + " SET name = ?, description = ?, price = ?, supply = ?, category = ?, image_base64 = ? WHERE id = ?";
+        String sql = "UPDATE " + FOOD_ITEMS_TABLE + " SET name = ?, description = ?, price = ?, supply = ?, category = ?, image_base64 = ?, keywords = ? WHERE id = ?";
         try (Connection conn = DatabaseManager.getConnection();
              PreparedStatement stmt = conn.prepareStatement(sql)) {
             stmt.setString(1, food.getName());
@@ -185,7 +185,12 @@ public class RestaurantDAO {
             stmt.setInt(4, food.getSupply());
             stmt.setString(5, food.getCategory().getValue());
             stmt.setString(6, food.getImageBase64());
-            stmt.setInt(7, food.getId());
+            if (food.getKeywords() != null && !food.getKeywords().isEmpty()) {
+                stmt.setString(7, String.join(",", food.getKeywords()));
+            } else {
+                stmt.setNull(7, Types.VARCHAR);
+            }
+            stmt.setInt(8, food.getId());
             return stmt.executeUpdate() > 0;
         }
     }
