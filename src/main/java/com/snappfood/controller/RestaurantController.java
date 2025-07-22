@@ -187,6 +187,11 @@ public class RestaurantController {
             throw new ResourceNotFoundException("Food item with ID " + foodItemId + " not found in this restaurant's master list.");
         }
 
+        RequestTracker tracker = addItemToMenuTrackers.computeIfAbsent(sellerId, k -> new RequestTracker(MAX_ADD_ITEM_TO_MENU_REQUESTS, ADD_ITEM_TO_MENU_RATE_LIMIT_WINDOW_MS));
+        if (!tracker.allowRequest()) {
+            throw new TooManyRequestsException("You are adding items to menus too frequently. Please try again later.");
+        }
+
         if (restaurantDAO.isItemInMenu(menu.getId(), foodItemId)) {
             throw new ConflictException("This food item is already in the menu.");
         }
@@ -398,6 +403,11 @@ public class RestaurantController {
         }
 
         //TODO You might want to add a check for active orders here in the future
+
+        RequestTracker tracker = removeItemFromMenuTrackers.computeIfAbsent(sellerId, k -> new RequestTracker(MAX_REMOVE_ITEM_FROM_MENU_REQUESTS, REMOVE_ITEM_FROM_MENU_RATE_LIMIT_WINDOW_MS));
+        if (!tracker.allowRequest()) {
+            throw new TooManyRequestsException("You are removing items from menus too frequently. Please try again later.");
+        }
 
         restaurantDAO.removeItemFromMenu(menu.getId(), itemId);
 
