@@ -352,6 +352,22 @@ public class RestaurantController {
     public Map<String, Object> handleDeleteTitledMenu(int restaurantId, int sellerId, String menuTitle) throws Exception {
         User seller = authorizeSellerAction(sellerId, restaurantId);
 
+        if (menuTitle == null || menuTitle.trim().isEmpty()) {
+            throw new InvalidInputException("Menu title is required.");
+        }
+        if (restaurantDAO.getRestaurantById(restaurantId) == null) {
+            throw new ResourceNotFoundException("Restaurant with ID " + restaurantId + " not found.");
+        }
+
+        RequestTracker tracker = deleteMenuTrackers.computeIfAbsent(sellerId, k -> new RequestTracker(MAX_DELETE_MENU_REQUESTS, DELETE_MENU_RATE_LIMIT_WINDOW_MS));
+        if (!tracker.allowRequest()) {
+            throw new TooManyRequestsException("You are deleting menus too frequently. Please try again later.");
+        }
+
+        if (!restaurantDAO.menuTitleExists(restaurantId, menuTitle)) {
+            throw new ResourceNotFoundException("Menu with title '" + menuTitle + "' does not exist for this restaurant.");
+        }
+
         Menu menu = restaurantDAO.getMenuByTitle(restaurantId, menuTitle);
         if (menu == null) {
             throw new ResourceNotFoundException("Menu with title '" + menuTitle + "' not found.");

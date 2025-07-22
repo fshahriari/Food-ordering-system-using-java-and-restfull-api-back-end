@@ -149,8 +149,6 @@ public class RestaurantDAO {
      * Deletes a titled menu and all its item associations.
      */
     public boolean deleteMenuById(int menuId) throws SQLException {
-        // The database schema should be set up with ON DELETE CASCADE
-        // for the foreign key in menu_items. If so, this is all that's needed.
         String sql = "DELETE FROM " + MENUS_TABLE + " WHERE id = ?";
         try (Connection conn = DatabaseManager.getConnection();
              PreparedStatement stmt = conn.prepareStatement(sql)) {
