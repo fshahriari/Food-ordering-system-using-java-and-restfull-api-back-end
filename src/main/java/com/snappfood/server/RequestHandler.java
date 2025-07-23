@@ -2,15 +2,19 @@ package com.snappfood.server;
 
 import com.google.gson.Gson;
 import com.google.gson.JsonSyntaxException;
+import com.google.gson.reflect.TypeToken;
 import com.snappfood.controller.AdminController;
+import com.snappfood.controller.OrderController;
 import com.snappfood.controller.RestaurantController;
 import com.snappfood.controller.UserController;
 import com.snappfood.exception.*;
 import com.snappfood.model.Food;
+import com.snappfood.model.Order;
 import com.snappfood.model.Restaurant;
 import com.snappfood.model.User;
 
 import java.io.IOException;
+import java.lang.reflect.Type;
 import java.net.URLDecoder;
 import java.nio.ByteBuffer;
 import java.nio.channels.SocketChannel;
@@ -18,6 +22,7 @@ import java.nio.charset.StandardCharsets;
 import java.sql.SQLException;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 public class RequestHandler implements Runnable {
@@ -27,6 +32,7 @@ public class RequestHandler implements Runnable {
     private final UserController userController;
     private final AdminController adminController;
     private final RestaurantController restaurantController;
+    private final OrderController orderController;
     private final Gson gson;
 
     public RequestHandler(String request, SocketChannel clientChannel) {
@@ -35,6 +41,7 @@ public class RequestHandler implements Runnable {
         this.userController = new UserController();
         this.adminController = new AdminController();
         this.restaurantController = new RestaurantController();
+        this.orderController = new OrderController();
         this.gson = new Gson();
     }
 
@@ -214,6 +221,30 @@ public class RequestHandler implements Runnable {
                         }
                         break;
 
+                    case "orders":
+                        if (path.equals("/orders") && method.equals("POST")) {
+                            if (userId == null) throw new UnauthorizedException("Authentication is required.");
+
+                            Type orderRequestType = new TypeToken<Map<String, Object>>() {}.getType();
+                            Map<String, Object> orderRequest = gson.fromJson(body, orderRequestType);
+
+                            Order order = new Order();
+                            order.setDeliveryAddress((String) orderRequest.get("delivery_address"));
+                            order.setRestaurantId(((Double) orderRequest.get("vendor_id")).intValue());
+                            if (orderRequest.get("coupon_id") != null) {
+                                order.setCouponId(((Double) orderRequest.get("coupon_id")).intValue());
+                            }
+
+                            List<Map<String, Double>> itemsList = (List<Map<String, Double>>) orderRequest.get("items");
+                            Map<Integer, Integer> itemsMap = new HashMap<>();
+                            for (Map<String, Double> item : itemsList) {
+                                itemsMap.put(item.get("item_id").intValue(), item.get("quantity").intValue());
+                            }
+                            order.setItems(itemsMap);
+
+                            responseMap = orderController.handleCreateOrder(order, userId);
+                        }
+                        break;
                     default:
                         statusCode = 404;
                         responseMap = Map.of("error", "Not Found");
