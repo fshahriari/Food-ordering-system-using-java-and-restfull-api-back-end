@@ -1838,6 +1838,57 @@ paths:
           $ref: '#/components/responses/forbidden'
         '500':
           $ref: '#/components/responses/internal_server_error'
+  /admin/pending-orders:
+    get:
+      tags:
+        - admin
+      summary: Get list of pending orders
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: A list of orders pending approval
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/order'
+        '401':
+          $ref: '#/components/responses/unauthorized'
+        '403':
+          $ref: '#/components/responses/forbidden'
+        '500':
+          $ref: '#/components/responses/internal_server_error'
+    put:
+      tags:
+        - admin
+      summary: Update the status of pending orders
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: array
+              items:
+                $ref: '#/components/schemas/order_status_update'
+      responses:
+        '200':
+          description: Orders' statuses updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/message'
+        '400':
+          $ref: '#/components/responses/invalid_input'
+        '401':
+          $ref: '#/components/responses/unauthorized'
+        '403':
+          $ref: '#/components/responses/forbidden'
+        '500':
+          $ref: '#/components/responses/internal_server_error'
   /admin/users/{id}/status:
     patch:
       tags:
@@ -2258,6 +2309,17 @@ components:
         - status
       properties:
         user_id:
+          type: integer
+        status:
+          type: string
+          enum: [approved, rejected]
+    order_status_update:
+      type: object
+      required:
+        - order_id
+        - status
+      properties:
+        order_id:
           type: integer
         status:
           type: string

@@ -1,9 +1,11 @@
 package com.snappfood.controller;
 
+import com.snappfood.dao.OrderDAO;
 import com.snappfood.dao.UserDAO;
 import com.snappfood.exception.ForbiddenException;
 import com.snappfood.exception.InvalidInputException;
 import com.snappfood.exception.UnauthorizedException;
+import com.snappfood.model.Order;
 import com.snappfood.model.Role;
 import com.snappfood.model.User;
 import com.snappfood.model.UserStatusUpdate;
@@ -16,6 +18,7 @@ import java.util.Map;
 public class AdminController {
 
     private final UserDAO userDAO = new UserDAO();
+    private final OrderDAO orderDAO = new OrderDAO();
 
     public List<User> getPendingSellersAndCouriers() {
         try {
@@ -94,5 +97,56 @@ public class AdminController {
 
     public void rejectUser(int userId) throws SQLException {
         userDAO.rejectUser(userId);
+    }
+
+    public Map<String, Object> handleGetPendingOrders(Integer adminId) throws Exception {
+        authorizeAdmin(adminId);
+        List<Order> pendingOrders = orderDAO.getPendingAdminOrders();
+        Map<String, Object> response = new HashMap<>();
+        response.put("status", 200);
+        response.put("pending_orders", pendingOrders);
+        return response;
+    }
+
+    /**
+     * Handles the batch update of pending order statuses using a list of Order objects.
+     * @param adminId The ID of the admin making the request.
+     * @param orderUpdates The list of Order objects with updated statuses.
+     * @return A map with a success message.
+     * @throws Exception for authorization, validation, or database errors.
+     */
+    public Map<String, Object> handleUpdatePendingOrders(Integer adminId, List<Order> orderUpdates) throws Exception {
+        authorizeAdmin(adminId);
+
+        if (orderUpdates == null || orderUpdates.isEmpty()) {
+            throw new InvalidInputException("Request body cannot be empty.");
+        }
+        for (Order update : orderUpdates) {
+            if (update.getId() <= 0 || update.getStatus() == null ||
+                    (update.getStatus() != com.snappfood.model.OrderStatus.PENDING_VENDOR_APPROVAL && update.getStatus() != com.snappfood.model.OrderStatus.REJECTED_BY_ADMIN)) {
+                throw new InvalidInputException("Invalid data format for order update. Each entry must have a valid 'id' and a 'status' of 'PENDING_VENDOR_APPROVAL' or 'REJECTED_BY_ADMIN'.");
+            }
+        }
+
+        try {
+            orderDAO.updatePendingOrdersBatch(orderUpdates);
+        } catch (SQLException e) {
+            throw new InvalidInputException(e.getMessage());
+        }
+
+        Map<String, Object> response = new HashMap<>();
+        response.put("status", 200);
+        response.put("message", "Pending orders updated successfully.");
+        return response;
+    }
+
+    private void authorizeAdmin(Integer adminId) throws Exception {
+        if (adminId == null) {
+            throw new UnauthorizedException("You must be logged in as an admin.");
+        }
+        User admin = userDAO.findUserById(adminId);
+        if (admin == null || admin.getRole() != Role.ADMIN) {
+            throw new ForbiddenException("You do not have permission to perform this action.");
+        }
     }
 }

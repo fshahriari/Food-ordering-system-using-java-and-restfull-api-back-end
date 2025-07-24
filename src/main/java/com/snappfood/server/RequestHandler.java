@@ -249,6 +249,12 @@ public class RequestHandler implements Runnable {
                             Type listType = new TypeToken<List<UserStatusUpdate>>() {}.getType();
                             List<UserStatusUpdate> userUpdates = gson.fromJson(body, listType);
                             responseMap = adminController.handleUpdatePendingUsers(userId, userUpdates);
+                        } else if (path.equals("/admin/pending-orders") && method.equals("GET")) {
+                            responseMap = adminController.handleGetPendingOrders(userId);
+                        } else if (path.equals("/admin/pending-orders") && method.equals("PUT")) {
+                            Type listType = new TypeToken<List<Order>>() {}.getType();
+                            List<Order> orderUpdates = gson.fromJson(body, listType);
+                            responseMap = adminController.handleUpdatePendingOrders(userId, orderUpdates);
                         }
                         break;
                     default:
