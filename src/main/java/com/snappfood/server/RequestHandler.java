@@ -245,6 +245,11 @@ public class RequestHandler implements Runnable {
                             responseMap = orderController.handleCreateOrder(order, userId);
                         }
                         break;
+                    case "admin":
+                        if (path.equals("/admin/pending-users") && method.equals("GET")) {
+                            responseMap = adminController.handleGetPendingUsers(userId);
+                        }
+                        break;
                     default:
                         statusCode = 404;
                         responseMap = Map.of("error", "Not Found");

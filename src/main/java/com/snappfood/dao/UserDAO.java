@@ -198,6 +198,25 @@ public class UserDAO {
         return pendingUsers;
     }
 
+    /**
+     * Retrieves all users from the pending_users table with a 'PENDING' status,
+     * sorted alphabetically by their full name.
+     * @return A sorted list of pending User objects.
+     * @throws SQLException if a database access error occurs.
+     */
+    public List<User> getPendingUsersSortedByName() throws SQLException {
+        List<User> pendingUsers = new ArrayList<>();
+        String sql = "SELECT * FROM pending_users WHERE status = 'PENDING' ORDER BY full_name ASC";
+        try (Connection conn = DatabaseManager.getConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql);
+             ResultSet rs = stmt.executeQuery()) {
+            while (rs.next()) {
+                pendingUsers.add(extractUserFromResultSet(rs));
+            }
+        }
+        return pendingUsers;
+    }
+
     public void confirmUser(int pendingUserId) throws SQLException {
         String selectSql = "SELECT * FROM pending_users WHERE id = ?";
         User userToConfirm = null;
