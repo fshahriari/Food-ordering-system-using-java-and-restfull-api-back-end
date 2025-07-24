@@ -1,10 +1,7 @@
 package com.snappfood.dao;
 
 import com.snappfood.database.DatabaseManager;
-import com.snappfood.model.User;
-import com.snappfood.model.Role;
-import com.snappfood.model.BankInfo;
-import com.snappfood.model.ConfirmStatus;
+import com.snappfood.model.*;
 
 import java.sql.*;
 import java.util.ArrayList;
@@ -73,7 +70,6 @@ public class UserDAO {
             stmt.setString(6, user.getAddress());
             stmt.setBytes(7, user.getProfileImage());
 
-            // ** FIX IS HERE: Add null check for optional BankInfo **
             BankInfo bankInfo = user.getBankInfo();
             if (bankInfo != null) {
                 stmt.setString(8, bankInfo.getBankName());
@@ -85,6 +81,39 @@ public class UserDAO {
 
             stmt.executeUpdate();
             return true;
+        }
+    }
+
+    private boolean insertUser(User user, Connection existingConnection) throws SQLException {
+        String sql = "INSERT INTO users (full_name, phone, email, password, role, address, profile_image, bank_name, account_number) " +
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)";
+        Connection conn = null;
+        try {
+            conn = (existingConnection != null) ? existingConnection : DatabaseManager.getConnection();
+            PreparedStatement stmt = conn.prepareStatement(sql);
+            stmt.setString(1, user.getName());
+            stmt.setString(2, user.getPhone());
+            stmt.setString(3, user.getEmail());
+            stmt.setString(4, user.getPassword());
+            stmt.setString(5, user.getRole().getValue());
+            stmt.setString(6, user.getAddress());
+            stmt.setBytes(7, user.getProfileImage());
+
+            BankInfo bankInfo = user.getBankInfo();
+            if (bankInfo != null) {
+                stmt.setString(8, bankInfo.getBankName());
+                stmt.setString(9, bankInfo.getAccountNumber());
+            } else {
+                stmt.setNull(8, java.sql.Types.VARCHAR);
+                stmt.setNull(9, java.sql.Types.VARCHAR);
+            }
+
+            stmt.executeUpdate();
+            return true;
+        }  finally {
+            if (existingConnection == null && conn != null) {
+                conn.close();
+            }
         }
     }
 
@@ -237,6 +266,31 @@ public class UserDAO {
         }
     }
 
+    private void confirmUser(int pendingUserId, Connection existingConnection) throws SQLException {
+        String selectSql = "SELECT * FROM pending_users WHERE id = ?";
+        User userToConfirm = null;
+        Connection conn = null;
+        try {
+            conn = (existingConnection != null) ? existingConnection : DatabaseManager.getConnection();
+            PreparedStatement selectStmt = conn.prepareStatement(selectSql);
+            selectStmt.setInt(1, pendingUserId);
+            try (ResultSet rs = selectStmt.executeQuery()) {
+                if (rs.next()) {
+                    userToConfirm = extractUserFromResultSet(rs);
+                }
+            }
+
+            if (userToConfirm != null) {
+                insertUser(userToConfirm, conn);
+                deletePendingUser(pendingUserId, conn);
+            }
+        } finally {
+            if (existingConnection == null && conn != null) {
+                conn.close();
+            }
+        }
+    }
+
     public void rejectUser(int pendingUserId) throws SQLException {
         String updateSql = "UPDATE pending_users SET status = ? WHERE id = ?";
         try (Connection conn = DatabaseManager.getConnection();
@@ -247,12 +301,43 @@ public class UserDAO {
         }
     }
 
+    private void rejectUser(int pendingUserId, Connection existingConnection) throws SQLException {
+        String updateSql = "UPDATE pending_users SET status = ? WHERE id = ?";
+        Connection conn = null;
+        try {
+            conn = (existingConnection != null) ? existingConnection : DatabaseManager.getConnection();
+            PreparedStatement stmt = conn.prepareStatement(updateSql);
+            stmt.setString(1, ConfirmStatus.REJECTED.name());
+            stmt.setInt(2, pendingUserId);
+            stmt.executeUpdate();
+        } finally {
+            if (existingConnection == null && conn != null) {
+                conn.close();
+            }
+        }
+    }
+
     private void deletePendingUser(int pendingUserId) throws SQLException {
         String deleteSql = "DELETE FROM pending_users WHERE id = ?";
         try (Connection conn = DatabaseManager.getConnection();
              PreparedStatement stmt = conn.prepareStatement(deleteSql)) {
             stmt.setInt(1, pendingUserId);
             stmt.executeUpdate();
+        }
+    }
+
+    private void deletePendingUser(int pendingUserId, Connection existingConnection) throws SQLException {
+        String deleteSql = "DELETE FROM pending_users WHERE id = ?";
+        Connection conn = null;
+        try {
+            conn = (existingConnection != null) ? existingConnection : DatabaseManager.getConnection();
+            PreparedStatement stmt = conn.prepareStatement(deleteSql);
+            stmt.setInt(1, pendingUserId);
+            stmt.executeUpdate();
+        } finally {
+            if (existingConnection == null && conn != null) {
+                conn.close();
+            }
         }
     }
 
@@ -312,6 +397,51 @@ public class UserDAO {
 
             int rowsAffected = stmt.executeUpdate();
             return rowsAffected > 0;
+        }
+    }
+
+    /**
+     * Processes a batch of user approval/rejection decisions within a single transaction.
+     * @param userUpdates A list of UserStatusUpdate objects.
+     * @throws SQLException if the transaction fails or a user is not valid.
+     */
+    public void updatePendingUsersBatch(List<UserStatusUpdate> userUpdates) throws SQLException {
+        Connection conn = null;
+        String checkPendingSql = "SELECT status FROM " + PENDING_USERS_TABLE + " WHERE id = ?";
+
+        try {
+            conn = DatabaseManager.getConnection();
+            conn.setAutoCommit(false);
+
+            PreparedStatement checkStmt = conn.prepareStatement(checkPendingSql);
+
+            for (UserStatusUpdate update : userUpdates) {
+                checkStmt.setInt(1, update.getUserId());
+                try (ResultSet rs = checkStmt.executeQuery()) {
+                    if (!rs.next() || !ConfirmStatus.PENDING.name().equals(rs.getString("status"))) {
+                        throw new SQLException("User with ID " + update.getUserId() + " is not a valid pending user.");
+                    }
+                }
+
+                if ("approved".equalsIgnoreCase(update.getStatus())) {
+                    confirmUser(update.getUserId(), conn);
+                } else if ("rejected".equalsIgnoreCase(update.getStatus())) {
+                    rejectUser(update.getUserId(), conn);
+                }
+            }
+
+            conn.commit();
+
+        } catch (SQLException e) {
+            if (conn != null) {
+                conn.rollback();
+            }
+            throw e;
+        } finally {
+            if (conn != null) {
+                conn.setAutoCommit(true);
+                conn.close();
+            }
         }
     }
 }

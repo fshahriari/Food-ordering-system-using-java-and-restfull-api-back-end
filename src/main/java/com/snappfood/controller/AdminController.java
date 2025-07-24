@@ -2,9 +2,11 @@ package com.snappfood.controller;
 
 import com.snappfood.dao.UserDAO;
 import com.snappfood.exception.ForbiddenException;
+import com.snappfood.exception.InvalidInputException;
 import com.snappfood.exception.UnauthorizedException;
 import com.snappfood.model.Role;
 import com.snappfood.model.User;
+import com.snappfood.model.UserStatusUpdate;
 
 import java.sql.SQLException;
 import java.util.HashMap;
@@ -47,6 +49,44 @@ public class AdminController {
         return response;
     }
 
+    /**
+     * Handles the batch update of pending user statuses.
+     * @param adminId The ID of the admin making the request.
+     * @param userUpdates The list of updates to perform.
+     * @return A map with a success message.
+     * @throws Exception for authorization, validation, or database errors.
+     */
+    public Map<String, Object> handleUpdatePendingUsers(Integer adminId, List<UserStatusUpdate> userUpdates) throws Exception {
+        if (adminId == null) {
+            throw new UnauthorizedException("You must be logged in as an admin.");
+        }
+        User admin = userDAO.findUserById(adminId);
+        if (admin == null || admin.getRole() != Role.ADMIN) {
+            throw new ForbiddenException("You do not have permission to perform this action.");
+        }
+
+        if (userUpdates == null || userUpdates.isEmpty()) {
+            throw new InvalidInputException("Request body cannot be empty.");
+        }
+        for (UserStatusUpdate update : userUpdates) {
+            if (update.getUserId() <= 0 || update.getStatus() == null ||
+                    (!update.getStatus().equalsIgnoreCase("approved") && !update.getStatus().equalsIgnoreCase("rejected"))) {
+                throw new InvalidInputException("Invalid data format for user update. Each entry must have a valid 'user_id' and 'status' ('approved' or 'rejected').");
+            }
+        }
+
+        try {
+            userDAO.updatePendingUsersBatch(userUpdates);
+        } catch (SQLException e) {
+            // The DAO will rollback,just need to re-throw a more specific error
+            throw new InvalidInputException(e.getMessage());
+        }
+
+        Map<String, Object> response = new HashMap<>();
+        response.put("status", 200);
+        response.put("message", "Pending users updated successfully.");
+        return response;
+    }
 
     public void confirmUser(int userId) throws SQLException {
         userDAO.confirmUser(userId);

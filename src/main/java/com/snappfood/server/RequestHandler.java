@@ -8,10 +8,7 @@ import com.snappfood.controller.OrderController;
 import com.snappfood.controller.RestaurantController;
 import com.snappfood.controller.UserController;
 import com.snappfood.exception.*;
-import com.snappfood.model.Food;
-import com.snappfood.model.Order;
-import com.snappfood.model.Restaurant;
-import com.snappfood.model.User;
+import com.snappfood.model.*;
 
 import java.io.IOException;
 import java.lang.reflect.Type;
@@ -248,6 +245,10 @@ public class RequestHandler implements Runnable {
                     case "admin":
                         if (path.equals("/admin/pending-users") && method.equals("GET")) {
                             responseMap = adminController.handleGetPendingUsers(userId);
+                        }  else if (path.equals("/admin/pending-users") && method.equals("PUT")) {
+                            Type listType = new TypeToken<List<UserStatusUpdate>>() {}.getType();
+                            List<UserStatusUpdate> userUpdates = gson.fromJson(body, listType);
+                            responseMap = adminController.handleUpdatePendingUsers(userId, userUpdates);
                         }
                         break;
                     default:
