@@ -256,6 +256,10 @@ public class RequestHandler implements Runnable {
                             responseMap = adminController.handleUpdatePendingOrders(userId, orderUpdates);
                         } else if (path.equals("/admin/pending-restaurants") && method.equals("GET")) {
                             responseMap = adminController.handleGetPendingRestaurants(userId);
+                        } else if (path.equals("/admin/pending-restaurants") && method.equals("PUT")) {
+                            Type listType = new TypeToken<List<RestaurantStatusUpdate>>() {}.getType();
+                            List<RestaurantStatusUpdate> restaurantUpdates = gson.fromJson(body, listType);
+                            responseMap = adminController.handleUpdatePendingRestaurants(userId, restaurantUpdates);
                         }
                         break;
                     default:

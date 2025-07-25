@@ -163,4 +163,30 @@ public class AdminController {
         response.put("pending_restaurants", pendingRestaurants);
         return response;
     }
+
+    public Map<String, Object> handleUpdatePendingRestaurants(Integer adminId, List<RestaurantStatusUpdate> restaurantUpdates) throws Exception {
+        authorizeAdmin(adminId);
+
+        if (restaurantUpdates == null || restaurantUpdates.isEmpty()) {
+            throw new InvalidInputException("Request body cannot be empty.");
+        }
+        for (RestaurantStatusUpdate update : restaurantUpdates) {
+            if (update.getRestaurantId() <= 0 || update.getStatus() == null ||
+                    (!update.getStatus().equalsIgnoreCase("approved") && !update.getStatus().equalsIgnoreCase("rejected"))) {
+                throw new InvalidInputException("Invalid data format. Each entry must have a valid 'restaurant_id' and 'status' ('approved' or 'rejected').");
+            }
+        }
+
+        try {
+            restaurantDAO.updatePendingRestaurantsBatch(restaurantUpdates);
+        } catch (SQLException e) {
+            throw new InvalidInputException(e.getMessage());
+        }
+
+        Map<String, Object> response = new HashMap<>();
+        response.put("status", 200);
+        response.put("message", "Pending restaurants updated successfully.");
+        return response;
+    }
+
 }

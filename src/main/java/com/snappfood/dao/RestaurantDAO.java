@@ -1,10 +1,7 @@
 package com.snappfood.dao;
 
 import com.snappfood.database.DatabaseManager;
-import com.snappfood.model.Food;
-import com.snappfood.model.FoodCategory;
-import com.snappfood.model.Menu;
-import com.snappfood.model.Restaurant;
+import com.snappfood.model.*;
 
 import java.sql.*;
 import java.util.ArrayList;
@@ -89,6 +86,14 @@ public class RestaurantDAO {
         }
     }
 
+    public boolean deleteRestaurant(int restaurantId) throws SQLException {
+        String sql = "DELETE FROM " + RESTAURANTS_TABLE + " WHERE id = ?";
+        try (Connection conn = DatabaseManager.getConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+            stmt.setInt(1, restaurantId);
+            return stmt.executeUpdate() > 0;
+        }
+    }
 
     /**
      * Adds a food item to a restaurant's master food list.
@@ -123,7 +128,6 @@ public class RestaurantDAO {
             }
         }
     }
-
 
     /**
      * Creates a new titled menu for a restaurant.
@@ -280,6 +284,69 @@ public class RestaurantDAO {
             }
         }
         return pendingRestaurants;
+    }
+
+    public void updatePendingRestaurantsBatch(List<RestaurantStatusUpdate> restaurantUpdates) throws SQLException {
+        Connection conn = null;
+        String selectPendingSql = "SELECT * FROM " + PENDING_RESTAURANTS_TABLE + " WHERE id = ?";
+        String insertRestaurantSql = "INSERT INTO " + RESTAURANTS_TABLE + " (name, logo_base64, address, phone_number, working_hours, category, tax_fee, additional_fee) VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
+        String deletePendingSql = "DELETE FROM " + PENDING_RESTAURANTS_TABLE + " WHERE id = ?";
+
+        try {
+            conn = DatabaseManager.getConnection();
+            conn.setAutoCommit(false); // Start transaction
+
+            PreparedStatement selectStmt = conn.prepareStatement(selectPendingSql);
+            PreparedStatement insertStmt = conn.prepareStatement(insertRestaurantSql);
+            PreparedStatement deleteStmt = conn.prepareStatement(deletePendingSql);
+
+            for (RestaurantStatusUpdate update : restaurantUpdates) {
+                selectStmt.setInt(1, update.getRestaurantId());
+                Restaurant pendingRestaurant = null;
+                try (ResultSet rs = selectStmt.executeQuery()) {
+                    if (rs.next()) {
+                        pendingRestaurant = extractRestaurantFromResultSet(rs);
+                    }
+                }
+
+                if (pendingRestaurant == null) {
+                    throw new SQLException("Restaurant with ID " + update.getRestaurantId() + " is not a valid pending restaurant.");
+                }
+
+                if ("approved".equalsIgnoreCase(update.getStatus())) {
+                    insertStmt.setString(1, pendingRestaurant.getName());
+                    insertStmt.setString(2, pendingRestaurant.getLogoBase64());
+                    insertStmt.setString(3, pendingRestaurant.getAddress());
+                    insertStmt.setString(4, pendingRestaurant.getPhoneNumber());
+                    insertStmt.setString(5, pendingRestaurant.getWorkingHours());
+                    insertStmt.setString(6, pendingRestaurant.getCategory());
+                    insertStmt.setInt(7, pendingRestaurant.getTaxFee());
+                    insertStmt.setInt(8, pendingRestaurant.getAdditionalFee());
+                    insertStmt.addBatch();
+
+                    deleteStmt.setInt(1, update.getRestaurantId());
+                    deleteStmt.addBatch();
+                } else if ("rejected".equalsIgnoreCase(update.getStatus())) {
+                    deleteStmt.setInt(1, update.getRestaurantId());
+                    deleteStmt.addBatch();
+                }
+            }
+
+            insertStmt.executeBatch();
+            deleteStmt.executeBatch();
+            conn.commit();
+
+        } catch (SQLException e) {
+            if (conn != null) {
+                conn.rollback();
+            }
+            throw e;
+        } finally {
+            if (conn != null) {
+                conn.setAutoCommit(true);
+                conn.close();
+            }
+        }
     }
 
     private Food extractFoodFromResultSet(ResultSet rs) throws SQLException {
