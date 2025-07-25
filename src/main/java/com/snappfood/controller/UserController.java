@@ -267,16 +267,18 @@ public class UserController {
         if (user.getEmail() != null && !user.getEmail().isEmpty() && !EMAIL_PATTERN.matcher(user.getEmail()).matches()) {
             throw new InvalidInputException("Invalid email");
         }
-        if ( (user.getAddress() != null &&  !(user.getRole().equals(Role.SELLER) || user.getRole().equals(Role.CUSTOMER)))
+        if (user.getRole().equals(Role.CUSTOMER) &&
+               ((user.getAddress() == null)
                 || !user.getAddress().matches("^[\\p{L}\\p{N}\\s,.-]{0,200}$")
-                || user.getAddress().trim().length() < 3) {
+                || user.getAddress().trim().length() < 3)) {
             throw new InvalidInputException("Invalid address");
         }
         if (user.getRole() == null || user.getRole().equals("undefined")
                 || !Role.isValid(user.getRole().getValue())) {
             throw new InvalidInputException("Invalid role");
         }
-        if (user.getRole() == Role.COURIER || user.getRole() == Role.COURIER) {
+        if (user.getRole() == Role.CUSTOMER || user.getRole() == Role.COURIER
+            || user.getRole() == Role.SELLER) {
             if (user.getBankInfo() == null) {
                 throw new InvalidInputException("Invalid bank info");
             }
@@ -314,7 +316,7 @@ public class UserController {
         if (success) {
             Map<String, Object> response = new HashMap<>();
             String message;
-            if (user.getRole() == Role.COURIER) {
+            if (user.getRole() == Role.COURIER || user.getRole() == Role.ADMIN) {
                 User createdUser = userDAO.findUserByPhone(user.getPhone());
                 String token = SessionRegistry.createSession(createdUser.getId());
                 message = "User registered successfully and is now logged in.";
