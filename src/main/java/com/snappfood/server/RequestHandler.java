@@ -238,6 +238,9 @@ public class RequestHandler implements Runnable {
                             order.setItems(itemsMap);
 
                             responseMap = orderController.handleCreateOrder(order, userId);
+                        } else if (pathSegments.length == 3 && method.equals("GET")) {
+                            int orderId = Integer.parseInt(pathSegments[2]);
+                            responseMap = orderController.handleGetOrderDetails(userId, orderId);
                         }
                         break;
                     case "admin":

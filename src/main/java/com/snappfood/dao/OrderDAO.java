@@ -211,4 +211,41 @@ public class OrderDAO {
         order.setUpdatedAt(rs.getTimestamp("updated_at"));
         return order;
     }
+
+    /**
+     * Retrieves a single, complete order by its ID, including all its items.
+     * @param orderId The ID of the order to fetch.
+     * @return The complete Order object, or null if not found.
+     * @throws SQLException if a database error occurs.
+     */
+    public Order getOrderById(int orderId) throws SQLException {
+        Order order = null;
+        String sql = "SELECT * FROM " + ORDERS_TABLE + " WHERE id = ?";
+        try (Connection conn = DatabaseManager.getConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+            stmt.setInt(1, orderId);
+            try (ResultSet rs = stmt.executeQuery()) {
+                if (rs.next()) {
+                    order = extractOrderFromResultSet(rs);
+                    order.setItems(getOrderItems(orderId)); // Fetch and attach the items
+                }
+            }
+        }
+        return order;
+    }
+
+    private Map<Integer, Integer> getOrderItems(int orderId) throws SQLException {
+        Map<Integer, Integer> items = new HashMap<>();
+        String sql = "SELECT food_item_id, quantity FROM " + ORDER_ITEMS_TABLE + " WHERE order_id = ?";
+        try (Connection conn = DatabaseManager.getConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+            stmt.setInt(1, orderId);
+            try (ResultSet rs = stmt.executeQuery()) {
+                while (rs.next()) {
+                    items.put(rs.getInt("food_item_id"), rs.getInt("quantity"));
+                }
+            }
+        }
+        return items;
+    }
 }
