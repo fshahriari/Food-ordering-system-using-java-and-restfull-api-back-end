@@ -277,6 +277,12 @@ public class UserController {
                 || !Role.isValid(user.getRole().getValue())) {
             throw new InvalidInputException("Invalid role");
         }
+        if (user.getProfileImage() != null && !GenerallController.isValidImage(user.getProfileImage())) {
+            throw new InvalidInputException("Invalid profile image");
+        }
+        if(user.getRole() == Role.ADMIN) {
+            throw new ForbiddenException("admin role is not allowed for signup");
+        }
         if (user.getRole() == Role.CUSTOMER || user.getRole() == Role.COURIER
             || user.getRole() == Role.SELLER) {
             if (user.getBankInfo() == null) {
@@ -316,7 +322,7 @@ public class UserController {
         if (success) {
             Map<String, Object> response = new HashMap<>();
             String message;
-            if (user.getRole() == Role.COURIER || user.getRole() == Role.ADMIN) {
+            if (user.getRole() == Role.COURIER) {
                 User createdUser = userDAO.findUserByPhone(user.getPhone());
                 String token = SessionRegistry.createSession(createdUser.getId());
                 message = "User registered successfully and is now logged in.";
