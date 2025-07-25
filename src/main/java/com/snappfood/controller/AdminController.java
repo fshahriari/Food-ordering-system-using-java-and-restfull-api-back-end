@@ -1,14 +1,12 @@
 package com.snappfood.controller;
 
 import com.snappfood.dao.OrderDAO;
+import com.snappfood.dao.RestaurantDAO;
 import com.snappfood.dao.UserDAO;
 import com.snappfood.exception.ForbiddenException;
 import com.snappfood.exception.InvalidInputException;
 import com.snappfood.exception.UnauthorizedException;
-import com.snappfood.model.Order;
-import com.snappfood.model.Role;
-import com.snappfood.model.User;
-import com.snappfood.model.UserStatusUpdate;
+import com.snappfood.model.*;
 
 import java.sql.SQLException;
 import java.util.HashMap;
@@ -19,6 +17,7 @@ public class AdminController {
 
     private final UserDAO userDAO = new UserDAO();
     private final OrderDAO orderDAO = new OrderDAO();
+    private final RestaurantDAO restaurantDAO = new RestaurantDAO();
 
     public List<User> getPendingSellersAndCouriers() {
         try {
@@ -148,5 +147,20 @@ public class AdminController {
         if (admin == null || admin.getRole() != Role.ADMIN) {
             throw new ForbiddenException("You do not have permission to perform this action.");
         }
+    }
+
+    /**
+     * Handles the logic for fetching the list of pending restaurants for an admin.
+     * @param adminId The ID of the user making the request.
+     * @return A map containing the list of pending restaurants.
+     * @throws Exception for authorization or database errors.
+     */
+    public Map<String, Object> handleGetPendingRestaurants(Integer adminId) throws Exception {
+        authorizeAdmin(adminId);
+        List<Restaurant> pendingRestaurants = restaurantDAO.getPendingRestaurantsSortedByName();
+        Map<String, Object> response = new HashMap<>();
+        response.put("status", 200);
+        response.put("pending_restaurants", pendingRestaurants);
+        return response;
     }
 }

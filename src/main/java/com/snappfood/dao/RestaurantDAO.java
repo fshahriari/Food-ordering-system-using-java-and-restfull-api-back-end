@@ -263,6 +263,25 @@ public class RestaurantDAO {
         return restaurant;
     }
 
+    /**
+     * Retrieves all restaurants from the pending_restaurants table,
+     * sorted alphabetically by their name.
+     * @return A sorted list of pending Restaurant objects.
+     * @throws SQLException if a database access error occurs.
+     */
+    public List<Restaurant> getPendingRestaurantsSortedByName() throws SQLException {
+        List<Restaurant> pendingRestaurants = new ArrayList<>();
+        String sql = "SELECT * FROM " + PENDING_RESTAURANTS_TABLE + " ORDER BY name ASC";
+        try (Connection conn = DatabaseManager.getConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql);
+             ResultSet rs = stmt.executeQuery()) {
+            while (rs.next()) {
+                pendingRestaurants.add(extractRestaurantFromResultSet(rs));
+            }
+        }
+        return pendingRestaurants;
+    }
+
     private Food extractFoodFromResultSet(ResultSet rs) throws SQLException {
         Food food = new Food();
         food.setId(rs.getInt("id"));
@@ -370,12 +389,14 @@ public class RestaurantDAO {
     }
 
     public boolean isFoodItemInActiveOrder(int foodId) throws SQLException {
+        //TODO
         // This is a placeholder. You'll need to implement the actual logic
         // to check if the food item is in an order that is not yet completed.
         return false;
     }
 
     public boolean isMenuItemInActiveOrder(int restaurantId) throws SQLException {
+        //TODO
         // This is a placeholder. You'll need to implement the actual logic to check
         // if any food item in the menu is part of an active order.
         return false;
