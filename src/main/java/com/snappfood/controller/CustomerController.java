@@ -56,4 +56,28 @@ public class CustomerController {
         response.put("status", 200);
         return response;
     }
+
+    /**
+     * Handles fetching the details of a single food item, ensuring it belongs to an approved restaurant.
+     * @param userId The ID of the authenticated user.
+     * @param itemId The ID of the food item to fetch.
+     * @return A map containing the food item's details.
+     * @throws Exception for authorization, validation, or database errors.
+     */
+    public Map<String, Object> handleGetItemDetails(Integer userId, int itemId) throws Exception {
+        if (userId == null) {
+            throw new UnauthorizedException("You must be logged in to view item details.");
+        }
+
+        Food foodItem = restaurantDAO.getFoodItemIfRestaurantIsApproved(itemId);
+
+        if (foodItem == null) {
+            throw new ResourceNotFoundException("Food item with ID " + itemId + " not found or is not available.");
+        }
+
+        Map<String, Object> response = new HashMap<>();
+        response.put("status", 200);
+        response.put("food_item", foodItem);
+        return response;
+    }
 }

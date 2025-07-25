@@ -267,6 +267,12 @@ public class RequestHandler implements Runnable {
                             responseMap = customerController.handleGetVendorDetails(userId, restaurantId);
                         }
                         break;
+                    case "items":
+                        if (pathSegments.length == 3 && method.equals("GET")) {
+                            int itemId = Integer.parseInt(pathSegments[2]);
+                            responseMap = customerController.handleGetItemDetails(userId, itemId);
+                        }
+                        break;
                     default:
                         statusCode = 404;
                         responseMap = Map.of("error", "Not Found");

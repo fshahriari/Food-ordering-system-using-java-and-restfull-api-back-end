@@ -491,6 +491,19 @@ public class RestaurantDAO {
         return foodItems;
     }
 
+    public Food getFoodItemIfRestaurantIsApproved(int foodId) throws SQLException {
+        Food foodItem = getFoodItemById(foodId);
+        if (foodItem != null) {
+            if (isRestaurantPending(foodItem.getRestaurantId())) {
+                return null;
+            }
+            if (getRestaurantById(foodItem.getRestaurantId()) != null) {
+                return foodItem;
+            }
+        }
+        return null;
+    }
+
     public boolean isFoodItemInActiveOrder(int foodId) throws SQLException {
         //TODO
         // This is a placeholder. You'll need to implement the actual logic
