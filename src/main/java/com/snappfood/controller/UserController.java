@@ -1,27 +1,27 @@
 package com.snappfood.controller;
 
+import com.google.gson.Gson;
+import com.google.gson.reflect.TypeToken;
 import com.snappfood.dao.UserDAO;
 import com.snappfood.exception.*;
 import com.snappfood.model.BankInfo;
 import com.snappfood.model.Role;
+import com.snappfood.model.Seller;
 import com.snappfood.model.User;
 import com.snappfood.server.SessionRegistry;
 import org.mindrot.jbcrypt.BCrypt;
 
+import java.lang.reflect.Type;
 import java.sql.SQLException;
 import java.sql.Timestamp;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
-import javax.imageio.ImageIO;
-import java.awt.image.BufferedImage;
-import java.io.ByteArrayInputStream;
-import java.util.Base64;
 import java.util.regex.Pattern;
-
 public class UserController {
 
     private final UserDAO userDAO = new UserDAO();
+    private final Gson gson = new Gson();
     private static final int MAX_FAILED_ATTEMPTS = 5;
     private static final int LOCK_TIME_IN_MINUTES = 1;
 
@@ -37,11 +37,11 @@ public class UserController {
     /**
      * Handles the logic for updating a user's profile.
      * @param userId The ID of the authenticated user.
-     * @param updatedData A User object containing the new data from the request.
+     * @param body The raw JSON string from the request body.
      * @return A map with a success message and the updated user object.
      * @throws Exception for various error conditions.
      */
-    public Map<String, Object> handleUpdateProfile(Integer userId, User updatedData) throws Exception {
+    public Map<String, Object> handleUpdateProfile(Integer userId, String body) throws Exception {
         if (userId == null) {
             throw new UnauthorizedException("Invalid token");
         }
@@ -51,54 +51,72 @@ public class UserController {
             throw new ResourceNotFoundException("User profile not found.");
         }
 
-        if (updatedData.getName() != null && !updatedData.getName().trim().isEmpty()) {
-            existingUser.setName(updatedData.getName());
+        if (userDAO.isUserPending(String.valueOf(userId))) {
+            throw new ForbiddenException("Pending users can't edit their profile.");
         }
-        if (updatedData.getEmail() != null) {
-            if (!EMAIL_PATTERN.matcher(updatedData.getEmail()).matches()) {
-                throw new InvalidInputException("Invalid email");
+
+        Type type = new TypeToken<Map<String, Object>>() {}.getType();
+        Map<String, Object> updatedData = gson.fromJson(body, type);
+
+        if (updatedData.containsKey("full_name")) {
+            existingUser.setName((String) updatedData.get("full_name"));
+            if (existingUser.getName() == null || existingUser.getName().isEmpty()) {
+                throw new InvalidInputException("full name is required and cannot be empty.");
             }
-            existingUser.setEmail(updatedData.getEmail());
         }
-        if (updatedData.getAddress() != null && !updatedData.getAddress().trim().isEmpty()) {
-            if (!updatedData.getAddress().matches("^[\\p{L}\\p{N}\\s,.-]{0,200}$") || updatedData.getAddress().trim().length() < 5) {
-                throw new InvalidInputException("Invalid address");
+        if (updatedData.containsKey("email")) {
+            String email = (String) updatedData.get("email");
+            if (!EMAIL_PATTERN.matcher(email).matches()) {
+                throw new InvalidInputException("Invalid email format");
             }
-            existingUser.setAddress(updatedData.getAddress());
+            existingUser.setEmail(email);
         }
-        if (updatedData.getProfileImage() != null) {
-            if (updatedData.getProfileImage() != null) {
-                if (!GenerallController.isValidImage(updatedData.getProfileImage())) {
-                    throw new InvalidInputException("Invalid or corrupted image file");
-                }
-                existingUser.setProfileImage(updatedData.getProfileImage());
+        if (updatedData.containsKey("address")) {
+            if (userDAO.findUserById(userId).getRole() != Role.CUSTOMER) {
+                throw new InvalidInputException("User is not a customer and can't have an address");
             }
-            existingUser.setProfileImage(updatedData.getProfileImage());
+            existingUser.setAddress((String) updatedData.get("address"));
         }
-        if (updatedData.getBankInfo() != null) {
-            if (existingUser.getRole() != Role.SELLER && existingUser.getRole() != Role.COURIER) {
-                throw new ForbiddenException("Bank info can only be set for sellers and couriers.");
+        if (updatedData.containsKey("phone")) {
+            String newPhone = (String) updatedData.get("phone");
+            if ((!newPhone.equals(existingUser.getPhone()) && userDAO.findUserByPhone(newPhone) != null)
+                || userDAO.findUserByPhone(newPhone) != null) {
+                throw new ConflictException("Phone number already in use.");
             }
-            BankInfo bankInfo = updatedData.getBankInfo();
-            if (bankInfo.getBankName() == null || bankInfo.getBankName().matches("^[0-9]+$")) {
-                throw new InvalidInputException("Invalid bank_name");
+            existingUser.setPhone(newPhone);
+            if (existingUser.getPhone() == null || existingUser.getPhone().isEmpty()) {
+                throw new InvalidInputException("Phone number is required and cannot be empty.");
             }
-            if (bankInfo.getAccountNumber() == null || !bankInfo.getAccountNumber().matches("^[0-9]+$")) {
-                throw new InvalidInputException("Invalid account_number");
+        }
+        if (updatedData.containsKey("profileImageBase64")) {
+            String imageBase64 = (String) updatedData.get("profileImageBase64");
+            existingUser.setProfileImage(java.util.Base64.getDecoder().decode(imageBase64));
+            if (!GenerallController.isValidImage(imageBase64)) {
+                throw new InvalidInputException("Invalid image");
+            }
+        }
+        if (updatedData.containsKey("bank_info")) {
+            if (existingUser.getRole() == Role.ADMIN || existingUser.getRole() == Role.UNDEFIENED) {
+                throw new ForbiddenException("Bank info can only be set for sellers and couriers and customers");
+            }
+            Map<String, String> bankInfoMap = (Map<String, String>) updatedData.get("bank_info");
+            BankInfo bankInfo = new BankInfo(bankInfoMap.get("bank_name"), bankInfoMap.get("account_number"));
+            if (bankInfo.getBankName() == null || bankInfo.getBankName().isEmpty()
+                || bankInfo.getAccountNumber() == null || bankInfo.getAccountNumber().isEmpty()) {
+                throw new InvalidInputException("Bank info required!");
             }
             existingUser.setBankInfo(bankInfo);
         }
-        if (updatedData.getPhone() != null && !updatedData.getPhone().trim().isEmpty()) {
-            if (userDAO.findUserByPhone(updatedData.getPhone()) != null) {
-                throw new ConflictException("Phone number already in use.");
+
+        if (existingUser.getRole() == Role.SELLER) {
+            Seller existingSeller = (Seller) existingUser;
+            if (updatedData.containsKey("brand_name")) {
+                existingSeller.setBrandName((String) updatedData.get("brand_name"));
             }
-            existingUser.setPhone(updatedData.getPhone());
+            if (updatedData.containsKey("brand_description")) {
+                existingSeller.setBrandDescription((String) updatedData.get("brand_description"));
+            }
         }
-
-        if (userDAO.isUserPending(updatedData.getPhone())) {
-            throw new ForbiddenException("User account is pending approval and cannot be updated.");
-        }
-
 
         boolean success = userDAO.updateUser(existingUser);
         if (!success) {
@@ -108,7 +126,7 @@ public class UserController {
         Map<String, Object> response = new HashMap<>();
         response.put("status", 200);
         response.put("message", "Profile updated successfully.");
-        response.put("user", existingUser); // Return the updated user object
+        response.put("user", existingUser);
         return response;
     }
 
@@ -260,17 +278,17 @@ public class UserController {
         }
         if (user.getRole() == Role.COURIER || user.getRole() == Role.COURIER) {
             if (user.getBankInfo() == null) {
-                throw new InvalidInputException("Invalid bank_info");
+                throw new InvalidInputException("Invalid bank info");
             }
             if (user.getBankInfo().getBankName() == null
                     || !user.getBankInfo().getBankName().matches("^[\\p{L}\\s]{1,50}$")
                     || user.getBankInfo().getBankName().trim().length() < 3) {
-                throw new InvalidInputException("Invalid bank_name");
+                throw new InvalidInputException("Invalid bank name");
             }
             if (user.getBankInfo().getAccountNumber() == null
                     || !user.getBankInfo().getAccountNumber().matches("^[0-9]{10,20}$")
                     || user.getBankInfo().getAccountNumber().trim().length() < 10) {
-                throw new InvalidInputException("Invalid account_number");
+                throw new InvalidInputException("Invalid account number");
             }
         }
 

@@ -3,13 +3,20 @@ import com.snappfood.model.ConfirmStatus;
 
 public class Seller extends User
 {
-    // list of resturants and their info
+    private String brandName;
+    private String brandDescription;
     private ConfirmStatus status = ConfirmStatus.PENDING;
 
     public Seller(String name, String phoneNumber, String email, String password, String address, byte[] profileImage, BankInfo bankInfo) {
         super(name, phoneNumber, email, password, Role.SELLER, address, profileImage, bankInfo);
         this.status = ConfirmStatus.PENDING;
     }
+
+    public Seller() {
+        super();
+        this.setRole(Role.SELLER);
+    }
+
 
     public ConfirmStatus getStatus() {
         return status;
@@ -19,5 +26,19 @@ public class Seller extends User
         this.status = status;
     }
 
-    //methods to add: managing restaurants, adding new restaurants, updating restaurant information, deleting restaurant
+    public String getBrandName() {
+        return brandName;
+    }
+
+    public void setBrandName(String brandName) {
+        this.brandName = brandName;
+    }
+
+    public String getBrandDescription() {
+        return brandDescription;
+    }
+
+    public void setBrandDescription(String brandDescription) {
+        this.brandDescription = brandDescription;
+    }
 }

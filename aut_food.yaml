@@ -190,7 +190,7 @@ paths:
         - auth
       summary: Update current user profile
       security:
-        - bearerAuth: []
+        - bearerAuth: [ ]
       requestBody:
         required: true
         content:
@@ -218,6 +218,10 @@ paths:
                       type: string
                     account_number:
                       type: string
+                brand_name:
+                  type: string
+                brand_description:
+                  type: string
       responses:
         '200':
           description: Profile updated successfully
@@ -2302,6 +2306,10 @@ components:
               type: string
             account_number:
               type: string
+        brand_name:
+          type: string
+        brand_description:
+          type: string
     user_status_update:
       type: object
       required:

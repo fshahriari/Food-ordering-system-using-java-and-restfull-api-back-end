@@ -158,8 +158,7 @@ public class RequestHandler implements Runnable {
                         } else if (path.equals("/auth/profile") && method.equals("GET")) {
                             responseMap = userController.handleGetProfile(userId);
                         } else if (path.equals("/auth/profile") && method.equals("PUT")) {
-                            User updatedData = gson.fromJson(body, User.class);
-                            responseMap = userController.handleUpdateProfile(userId, updatedData);
+                            responseMap = userController.handleUpdateProfile(userId, body);
                         } else if (path.equals("/auth/logout") && method.equals("POST")) {
                             responseMap = userController.handleLogout(token);
                         }
