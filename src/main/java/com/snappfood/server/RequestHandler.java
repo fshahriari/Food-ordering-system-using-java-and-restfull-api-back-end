@@ -3,10 +3,7 @@ package com.snappfood.server;
 import com.google.gson.Gson;
 import com.google.gson.JsonSyntaxException;
 import com.google.gson.reflect.TypeToken;
-import com.snappfood.controller.AdminController;
-import com.snappfood.controller.OrderController;
-import com.snappfood.controller.RestaurantController;
-import com.snappfood.controller.UserController;
+import com.snappfood.controller.*;
 import com.snappfood.exception.*;
 import com.snappfood.model.*;
 
@@ -30,6 +27,7 @@ public class RequestHandler implements Runnable {
     private final AdminController adminController;
     private final RestaurantController restaurantController;
     private final OrderController orderController;
+    private final CustomerController customerController;
     private final Gson gson;
 
     public RequestHandler(String request, SocketChannel clientChannel) {
@@ -39,6 +37,7 @@ public class RequestHandler implements Runnable {
         this.adminController = new AdminController();
         this.restaurantController = new RestaurantController();
         this.orderController = new OrderController();
+        this.customerController = new CustomerController();
         this.gson = new Gson();
     }
 
@@ -260,6 +259,12 @@ public class RequestHandler implements Runnable {
                             Type listType = new TypeToken<List<RestaurantStatusUpdate>>() {}.getType();
                             List<RestaurantStatusUpdate> restaurantUpdates = gson.fromJson(body, listType);
                             responseMap = adminController.handleUpdatePendingRestaurants(userId, restaurantUpdates);
+                        }
+                        break;
+                    case "vendors":
+                        if (pathSegments.length == 3 && method.equals("GET")) {
+                            int restaurantId = Integer.parseInt(pathSegments[2]);
+                            responseMap = customerController.handleGetVendorDetails(userId, restaurantId);
                         }
                         break;
                     default:

@@ -455,6 +455,42 @@ public class RestaurantDAO {
         return null;
     }
 
+    public List<Menu> getMenusForRestaurant(int restaurantId) throws SQLException {
+        List<Menu> menus = new ArrayList<>();
+        String sql = "SELECT id, title FROM " + MENUS_TABLE + " WHERE restaurant_id = ?";
+        try (Connection conn = DatabaseManager.getConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+            stmt.setInt(1, restaurantId);
+            try (ResultSet rs = stmt.executeQuery()) {
+                while (rs.next()) {
+                    Menu menu = new Menu();
+                    menu.setId(rs.getInt("id"));
+                    menu.setTitle(rs.getString("title"));
+                    menu.setRestaurantId(restaurantId);
+                    menus.add(menu);
+                }
+            }
+        }
+        return menus;
+    }
+
+    public List<Food> getFoodItemsForMenu(int menuId) throws SQLException {
+        List<Food> foodItems = new ArrayList<>();
+        String sql = "SELECT f.* FROM " + FOOD_ITEMS_TABLE + " f " +
+                "JOIN " + MENU_ITEMS_TABLE + " mi ON f.id = mi.food_item_id " +
+                "WHERE mi.menu_id = ?";
+        try (Connection conn = DatabaseManager.getConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+            stmt.setInt(1, menuId);
+            try (ResultSet rs = stmt.executeQuery()) {
+                while (rs.next()) {
+                    foodItems.add(extractFoodFromResultSet(rs));
+                }
+            }
+        }
+        return foodItems;
+    }
+
     public boolean isFoodItemInActiveOrder(int foodId) throws SQLException {
         //TODO
         // This is a placeholder. You'll need to implement the actual logic
