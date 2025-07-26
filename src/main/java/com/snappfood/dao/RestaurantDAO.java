@@ -628,4 +628,27 @@ public class RestaurantDAO {
             stmt.executeUpdate();
         }
     }
+
+    /**
+     * Retrieves a list of favorite restaurants for a specific customer.
+     * @param customerId The ID of the customer.
+     * @return A list of Restaurant objects.
+     * @throws SQLException if a database error occurs.
+     */
+    public List<Restaurant> getFavoriteRestaurantsByCustomerId(int customerId) throws SQLException {
+        List<Restaurant> favoriteRestaurants = new ArrayList<>();
+        String sql = "SELECT r.* FROM " + RESTAURANTS_TABLE + " r " +
+                "JOIN " + FAVORITE_RESTAURANTS_TABLE + " fr ON r.id = fr.restaurant_id " +
+                "WHERE fr.customer_id = ?";
+        try (Connection conn = DatabaseManager.getConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+            stmt.setInt(1, customerId);
+            try (ResultSet rs = stmt.executeQuery()) {
+                while (rs.next()) {
+                    favoriteRestaurants.add(extractRestaurantFromResultSet(rs));
+                }
+            }
+        }
+        return favoriteRestaurants;
+    }
 }

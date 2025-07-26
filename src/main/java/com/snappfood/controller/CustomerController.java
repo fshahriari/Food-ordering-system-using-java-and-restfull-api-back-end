@@ -107,4 +107,28 @@ public class CustomerController {
         response.put("message", "Restaurant added to favorites successfully.");
         return response;
     }
+
+    /**
+     * Handles fetching the list of favorite restaurants for a customer.
+     * @param userId The ID of the authenticated customer.
+     * @return A map containing the list of favorite restaurants.
+     * @throws Exception for any validation, authorization, or database errors.
+     */
+    public Map<String, Object> handleGetFavoriteRestaurants(Integer userId) throws Exception {
+        if (userId == null) {
+            throw new UnauthorizedException("You must be logged in to view your favorites.");
+        }
+
+        User user = userDAO.findUserById(userId);
+        if (user == null || user.getRole() != Role.CUSTOMER) {
+            throw new ForbiddenException("Only customers can view favorites.");
+        }
+
+        List<Restaurant> favoriteRestaurants = restaurantDAO.getFavoriteRestaurantsByCustomerId(userId);
+
+        Map<String, Object> response = new HashMap<>();
+        response.put("status", 200);
+        response.put("restaurants", favoriteRestaurants);
+        return response;
+    }
 }
