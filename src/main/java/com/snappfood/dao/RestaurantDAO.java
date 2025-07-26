@@ -683,17 +683,18 @@ public class RestaurantDAO {
 
         StringBuilder sql = new StringBuilder("SELECT r.* FROM " + RESTAURANTS_TABLE + " r ");
 
-        if (filters.containsKey("categories")) {
-            sql.append(" JOIN " + FOOD_ITEMS_TABLE + " fi ON r.id = fi.restaurant_id ");
+        if (filters.containsKey("search") || filters.containsKey("categories")) {
+            sql.append(" LEFT JOIN " + FOOD_ITEMS_TABLE + " fi ON r.id = fi.restaurant_id ");
         }
         if (filters.containsKey("min_rating")) {
-            sql.append(" JOIN " + RATINGS_TABLE + " ra ON r.id = ra.restaurant_id ");
+            sql.append(" LEFT JOIN " + RATINGS_TABLE + " ra ON r.id = ra.restaurant_id ");
         }
 
-        sql.append(" WHERE 1=1 ");
+        sql.append(" WHERE r.id NOT IN (SELECT id FROM " + PENDING_RESTAURANTS_TABLE + ") ");
 
         if (filters.containsKey("search")) {
-            sql.append(" AND r.name LIKE ?");
+            sql.append(" AND (r.name LIKE ? OR fi.name LIKE ?)");
+            params.add("%" + filters.get("search") + "%");
             params.add("%" + filters.get("search") + "%");
         }
         if (filters.containsKey("categories")) {
@@ -752,7 +753,8 @@ public class RestaurantDAO {
         sql.append(" WHERE r.id NOT IN (SELECT id FROM " + PENDING_RESTAURANTS_TABLE + ") ");
 
         if (filters.containsKey("search")) {
-            sql.append(" AND fi.name LIKE ?");
+            sql.append(" AND (fi.name LIKE ? OR fi.description LIKE ?)");
+            params.add("%" + filters.get("search") + "%");
             params.add("%" + filters.get("search") + "%");
         }
 
