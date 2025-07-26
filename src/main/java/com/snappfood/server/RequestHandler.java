@@ -213,6 +213,14 @@ public class RequestHandler implements Runnable {
                             String title = pathSegments[4];
                             Integer itemId = Integer.parseInt(pathSegments[5]);
                             responseMap = restaurantController.handleRemoveItemFromTitledMenu(restaurantId, userId, title, itemId);
+                        } else if (pathSegments.length == 4 && pathSegments[3].equals("orders") && method.equals("GET")) {
+                            int restaurantId = Integer.parseInt(pathSegments[2]);
+                            responseMap = restaurantController.handleGetRestaurantOrders(userId, restaurantId, queryParams);
+                        } else if (pathSegments.length == 5 && pathSegments[3].equals("orders") && method.equals("PATCH")) {
+                            int restaurantId = Integer.parseInt(pathSegments[2]);
+                            int orderId = Integer.parseInt(pathSegments[4]);
+                            Map<String, String> requestBody = gson.fromJson(body, Map.class);
+                            responseMap = restaurantController.handleUpdateOrderStatus(userId, restaurantId, orderId, requestBody);
                         }
                         break;
 

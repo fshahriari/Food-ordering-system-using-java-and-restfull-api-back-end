@@ -819,11 +819,17 @@ paths:
                 status:
                   type: string
                   enum:
-                    - accepted
-                    - rejected
-                    - served
+                    - PENDING_ADMIN_APPROVAL
+                    - REJECTED_BY_ADMIN
+                    - PENDING_VENDOR_APPROVAL
+                    - REJECTED_BY_VENDOR
+                    - PREPARING
+                    - READY_FOR_PICKUP
+                    - ON_THE_WAY
+                    - COMPLETED
+                    - CANCELLED
       security:
-        - bearerAuth: []
+        - bearerAuth: [ ]
       responses:
         '200':
           description: Order status changed successfully

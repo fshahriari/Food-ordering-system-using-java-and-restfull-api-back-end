@@ -1,5 +1,6 @@
 package com.snappfood.controller;
 
+import com.snappfood.dao.OrderDAO;
 import com.snappfood.dao.RestaurantDAO;
 import com.snappfood.dao.UserDAO;
 import com.snappfood.exception.*;
@@ -18,6 +19,8 @@ public class RestaurantController {
 
     private final RestaurantDAO restaurantDAO = new RestaurantDAO();
     private final UserDAO userDAO = new UserDAO();
+    private final OrderDAO orderDAO = new OrderDAO();
+    private final OrderController orderController = new OrderController();
 
 
     private static final int MAX_RESTAURANT_CREATION_REQUESTS = 3;
@@ -591,6 +594,48 @@ public class RestaurantController {
         return response;
     }
 
+    public Map<String, Object> handleGetRestaurantOrders(Integer sellerId, int restaurantId, Map<String, String> filters) throws Exception {
+        User seller = authorizeSellerAction(sellerId, restaurantId);
+
+        List<Order> orders = orderDAO.getOrdersForRestaurant(restaurantId, filters);
+
+        Map<String, Object> response = new HashMap<>();
+        response.put("status", 200);
+        response.put("orders", orders);
+        return response;
+    }
+
+    /**
+     * Handles updating the status of an order by a seller.
+     * @param sellerId The ID of the authenticated seller.
+     * @param restaurantId The ID of the restaurant the order belongs to.
+     * @param orderId The ID of the order to update.
+     * @param body The request body containing the new status.
+     * @return A map with a success message.
+     * @throws Exception for any validation, authorization, or database errors.
+     */
+    public Map<String, Object> handleUpdateOrderStatus(Integer sellerId, int restaurantId, int orderId, Map<String, String> body) throws Exception {
+        authorizeSellerAction(sellerId, restaurantId);
+
+        String newStatusStr = body.get("status");
+        if (newStatusStr == null || newStatusStr.trim().isEmpty()) {
+            throw new InvalidInputException("Status is required.");
+        }
+
+        OrderStatus newStatus;
+        try {
+            newStatus = OrderStatus.valueOf(newStatusStr.toUpperCase());
+        } catch (IllegalArgumentException e) {
+            throw new InvalidInputException("Invalid status value: " + newStatusStr);
+        }
+
+        orderController.handleUpdateOrderStatus(sellerId, orderId, newStatus);
+
+        Map<String, Object> response = new HashMap<>();
+        response.put("status", 200);
+        response.put("message", "Order status updated successfully.");
+        return response;
+    }
 
     private static class RequestTracker {
         private int requestCount;

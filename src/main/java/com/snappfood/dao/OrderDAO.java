@@ -1,6 +1,8 @@
 package com.snappfood.dao;
 
 import com.snappfood.database.DatabaseManager;
+import com.snappfood.exception.ConflictException;
+import com.snappfood.exception.ResourceNotFoundException;
 import com.snappfood.model.Order;
 import com.snappfood.model.OrderStatus;
 
@@ -18,6 +20,7 @@ public class OrderDAO {
     private static final String ORDERS_TABLE = "orders";
     private static final String ORDER_ITEMS_TABLE = "order_items";
     private static final String FOOD_ITEMS_TABLE = "food_items";
+    private static final String USERS_TABLE = "users";
 
     /**
      * Creates a new order in the database within a single transaction.
@@ -247,5 +250,110 @@ public class OrderDAO {
             }
         }
         return items;
+    }
+
+    /**
+     * Retrieves orders for a specific restaurant, with optional filters.
+     * @param restaurantId The ID of the restaurant.
+     * @param filters A map of query parameters (status, search, user, courier).
+     * @return A list of matching Order objects.
+     * @throws SQLException if a database error occurs.
+     */
+    public List<Order> getOrdersForRestaurant(int restaurantId, Map<String, String> filters) throws SQLException {
+        List<Order> orders = new ArrayList<>();
+
+        StringBuilder sql = new StringBuilder(
+                "SELECT o.* FROM " + ORDERS_TABLE + " o " +
+                        "LEFT JOIN " + USERS_TABLE + " c ON o.customer_id = c.id " +
+                        "LEFT JOIN " + USERS_TABLE + " cr ON o.courier_id = cr.id " +
+                        "WHERE o.restaurant_id = ? " +
+                        "AND o.status NOT IN ('PENDING_ADMIN_APPROVAL', 'REJECTED_BY_ADMIN')"
+        );
+
+        List<Object> params = new ArrayList<>();
+        params.add(restaurantId);
+
+        if (filters.containsKey("status")) {
+            sql.append(" AND o.status = ?");
+            params.add(filters.get("status").toUpperCase());
+        }
+        if (filters.containsKey("search")) {
+            sql.append(" AND c.full_name LIKE ?");
+            params.add("%" + filters.get("search") + "%");
+        }
+        if (filters.containsKey("user")) {
+            sql.append(" AND c.full_name LIKE ?");
+            params.add("%" + filters.get("user") + "%");
+        }
+        if (filters.containsKey("courier")) {
+            sql.append(" AND cr.full_name LIKE ?");
+            params.add("%" + filters.get("courier") + "%");
+        }
+
+        sql.append(" ORDER BY o.created_at DESC");
+
+        try (Connection conn = DatabaseManager.getConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql.toString())) {
+
+            for (int i = 0; i < params.size(); i++) {
+                stmt.setObject(i + 1, params.get(i));
+            }
+
+            try (ResultSet rs = stmt.executeQuery()) {
+                while (rs.next()) {
+                    Order order = extractOrderFromResultSet(rs);
+                    order.setItems(getOrderItems(order.getId()));
+                    orders.add(order);
+                }
+            }
+        }
+        return orders;
+    }
+
+    /**
+     * A general method to update the status of an order in the database.
+     * It handles the database transaction and returns stock for cancelled/rejected orders.
+     * The business logic for valid state transitions should be handled in the controller.
+     * @param orderId The ID of the order to update.
+     * @param newStatus The new status to set for the order.
+     * @throws SQLException for database access errors.
+     * @throws ResourceNotFoundException if the order with the given ID is not found.
+     */
+    public void updateOrderStatus(int orderId, OrderStatus newStatus) throws SQLException, ResourceNotFoundException {
+        Connection conn = null;
+        String updateSql = "UPDATE " + ORDERS_TABLE + " SET status = ? WHERE id = ?";
+
+        try {
+            conn = DatabaseManager.getConnection();
+            conn.setAutoCommit(false);
+
+            // If the new status is a cancellation or rejection, return stock
+            if (newStatus == OrderStatus.CANCELLED || newStatus == OrderStatus.REJECTED_BY_VENDOR) {
+                returnStockForOrder(orderId, conn);
+            }
+
+            // Perform the update
+            try (PreparedStatement stmt = conn.prepareStatement(updateSql)) {
+                stmt.setString(1, newStatus.name());
+                stmt.setInt(2, orderId);
+                int rowsAffected = stmt.executeUpdate();
+                if (rowsAffected == 0) {
+                    throw new ResourceNotFoundException("Order with ID " + orderId + " not found during update.");
+                }
+            }
+
+            conn.commit();
+
+        } catch (SQLException | ResourceNotFoundException e) {
+            if (conn != null) {
+                conn.rollback();
+            }
+            throw e; // Re-throw to be handled by the controller
+        } finally {
+            if (conn != null) {
+                conn.setAutoCommit(true);
+                conn.close();
+            }
+        }
     }
 }
