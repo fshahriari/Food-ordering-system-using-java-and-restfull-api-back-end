@@ -693,7 +693,9 @@ public class RestaurantDAO {
         sql.append(" WHERE r.id NOT IN (SELECT id FROM " + PENDING_RESTAURANTS_TABLE + ") ");
 
         if (filters.containsKey("search")) {
-            sql.append(" AND (r.name LIKE ? OR fi.name LIKE ?)");
+            //Added search by food item keywords
+            sql.append(" AND (r.name LIKE ? OR fi.name LIKE ? OR fi.keywords LIKE ?)");
+            params.add("%" + filters.get("search") + "%");
             params.add("%" + filters.get("search") + "%");
             params.add("%" + filters.get("search") + "%");
         }
@@ -753,7 +755,9 @@ public class RestaurantDAO {
         sql.append(" WHERE r.id NOT IN (SELECT id FROM " + PENDING_RESTAURANTS_TABLE + ") ");
 
         if (filters.containsKey("search")) {
-            sql.append(" AND (fi.name LIKE ? OR fi.description LIKE ?)");
+            //Added search by keywords
+            sql.append(" AND (fi.name LIKE ? OR fi.description LIKE ? OR fi.keywords LIKE ?)");
+            params.add("%" + filters.get("search") + "%");
             params.add("%" + filters.get("search") + "%");
             params.add("%" + filters.get("search") + "%");
         }
