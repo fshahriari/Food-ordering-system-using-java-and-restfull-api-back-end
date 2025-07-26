@@ -21,6 +21,7 @@ public class OrderDAO {
     private static final String ORDER_ITEMS_TABLE = "order_items";
     private static final String FOOD_ITEMS_TABLE = "food_items";
     private static final String USERS_TABLE = "users";
+    private static final String RESTAURANTS_TABLE = "restaurants";
 
     /**
      * Creates a new order in the database within a single transaction.
@@ -419,6 +420,52 @@ public class OrderDAO {
              ResultSet rs = stmt.executeQuery()) {
             while (rs.next()) {
                 orders.add(extractOrderFromResultSet(rs));
+            }
+        }
+        return orders;
+    }
+
+    /**
+     * Retrieves the delivery history for a specific courier, with optional filters.
+     * @param courierId The ID of the courier.
+     * @param filters A map of query parameters (search, vendor, user).
+     * @return A list of orders assigned to the courier, sorted by date.
+     * @throws SQLException if a database error occurs.
+     */
+    public List<Order> getDeliveryHistoryForCourier(int courierId, Map<String, String> filters) throws SQLException {
+        List<Order> orders = new ArrayList<>();
+        StringBuilder sql = new StringBuilder("SELECT o.* FROM " + ORDERS_TABLE + " o " +
+                "JOIN " + USERS_TABLE + " u ON o.customer_id = u.id " +
+                "JOIN " + RESTAURANTS_TABLE + " r ON o.restaurant_id = r.id " +
+                "WHERE o.courier_id = ?");
+        List<Object> params = new ArrayList<>();
+        params.add(courierId);
+
+        if (filters.containsKey("search")) {
+            sql.append(" AND (r.name LIKE ? OR u.full_name LIKE ?)");
+            params.add("%" + filters.get("search") + "%");
+            params.add("%" + filters.get("search") + "%");
+        }
+        if (filters.containsKey("vendor")) {
+            sql.append(" AND r.name LIKE ?");
+            params.add("%" + filters.get("vendor") + "%");
+        }
+        if (filters.containsKey("user")) {
+            sql.append(" AND u.full_name LIKE ?");
+            params.add("%" + filters.get("user") + "%");
+        }
+
+        sql.append(" ORDER BY o.created_at DESC");
+
+        try (Connection conn = DatabaseManager.getConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql.toString())) {
+            for (int i = 0; i < params.size(); i++) {
+                stmt.setObject(i + 1, params.get(i));
+            }
+            try (ResultSet rs = stmt.executeQuery()) {
+                while (rs.next()) {
+                    orders.add(extractOrderFromResultSet(rs));
+                }
             }
         }
         return orders;

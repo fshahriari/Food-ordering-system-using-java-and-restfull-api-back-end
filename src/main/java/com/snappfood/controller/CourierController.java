@@ -92,4 +92,33 @@ public class CourierController {
 
         return orderController.handleUpdateOrderStatus(userId, orderId, newStatus);
     }
+
+    /**
+     * Handles fetching the delivery history for the authenticated courier with optional filters.
+     * @param userId The ID of the authenticated courier.
+     * @param filters A map of query parameters (search, vendor, user).
+     * @return A map containing the list of past and current deliveries.
+     * @throws Exception for any validation, authorization, or database errors.
+     */
+    public Map<String, Object> handleGetDeliveryHistory(Integer userId, Map<String, String> filters) throws Exception {
+        if (userId == null) {
+            throw new UnauthorizedException("You must be logged in to view your delivery history.");
+        }
+
+        User user = userDAO.findUserById(userId);
+        if (user == null || user.getRole() != Role.COURIER) {
+            throw new ForbiddenException("Only couriers can view their delivery history.");
+        }
+
+        if (userDAO.isUserPending(user.getPhone())) {
+            throw new ForbiddenException("Your courier account is pending approval.");
+        }
+
+        List<Order> deliveryHistory = orderDAO.getDeliveryHistoryForCourier(userId, filters);
+
+        Map<String, Object> response = new HashMap<>();
+        response.put("status", 200);
+        response.put("deliveries", deliveryHistory);
+        return response;
+    }
 }

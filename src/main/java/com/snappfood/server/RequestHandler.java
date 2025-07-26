@@ -310,6 +310,8 @@ public class RequestHandler implements Runnable {
                     case "deliveries":
                         if (path.equals("/deliveries/available") && method.equals("GET")) {
                             responseMap = courierController.handleGetAvailableDeliveries(userId);
+                        } else if (path.equals("/deliveries/history") && method.equals("GET")) {
+                            responseMap = courierController.handleGetDeliveryHistory(userId, queryParams);
                         } else if (pathSegments.length == 3 && method.equals("PATCH")) {
                             int orderId = Integer.parseInt(pathSegments[2]);
                             Map<String, String> requestBody = gson.fromJson(body, Map.class);
