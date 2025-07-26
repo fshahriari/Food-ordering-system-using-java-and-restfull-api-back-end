@@ -321,22 +321,32 @@ public class OrderDAO {
      * @throws SQLException for database access errors.
      * @throws ResourceNotFoundException if the order with the given ID is not found.
      */
-    public void updateOrderStatus(int orderId, OrderStatus newStatus) throws SQLException, ResourceNotFoundException {
+    public void updateOrderStatus(int orderId, OrderStatus newStatus, Integer courierId) throws SQLException, ResourceNotFoundException {
         Connection conn = null;
-        String updateSql = "UPDATE " + ORDERS_TABLE + " SET status = ? WHERE id = ?";
+        String updateSql;
+        if (courierId != null) {
+            updateSql = "UPDATE " + ORDERS_TABLE + " SET status = ?, courier_id = ?, updated_at = ? WHERE id = ?";
+        } else {
+            updateSql = "UPDATE " + ORDERS_TABLE + " SET status = ?, updated_at = ? WHERE id = ?";
+        }
 
         try {
             conn = DatabaseManager.getConnection();
             conn.setAutoCommit(false);
 
+            // If the new status is a cancellation or rejection, return stock
             if (newStatus == OrderStatus.CANCELLED || newStatus == OrderStatus.REJECTED_BY_VENDOR) {
                 returnStockForOrder(orderId, conn);
             }
 
             try (PreparedStatement stmt = conn.prepareStatement(updateSql)) {
-                stmt.setString(1, newStatus.name());
-                stmt.setTimestamp(2, new Timestamp(System.currentTimeMillis()));
-                stmt.setInt(3, orderId);
+                int paramIndex = 1;
+                stmt.setString(paramIndex++, newStatus.name());
+                if (courierId != null) {
+                    stmt.setInt(paramIndex++, courierId);
+                }
+                stmt.setTimestamp(paramIndex++, new Timestamp(System.currentTimeMillis()));
+                stmt.setInt(paramIndex++, orderId);
                 int rowsAffected = stmt.executeUpdate();
                 if (rowsAffected == 0) {
                     throw new ResourceNotFoundException("Order with ID " + orderId + " not found during update.");
@@ -391,6 +401,24 @@ public class OrderDAO {
                 while (rs.next()) {
                     orders.add(extractOrderFromResultSet(rs));
                 }
+            }
+        }
+        return orders;
+    }
+
+    /**
+     * Retrieves all orders that are ready for pickup and have not been assigned a courier.
+     * @return A list of available Order objects.
+     * @throws SQLException if a database error occurs.
+     */
+    public List<Order> getAvailableDeliveries() throws SQLException {
+        List<Order> orders = new ArrayList<>();
+        String sql = "SELECT * FROM " + ORDERS_TABLE + " WHERE status = 'READY_FOR_PICKUP' AND courier_id IS NULL ORDER BY created_at ASC";
+        try (Connection conn = DatabaseManager.getConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql);
+             ResultSet rs = stmt.executeQuery()) {
+            while (rs.next()) {
+                orders.add(extractOrderFromResultSet(rs));
             }
         }
         return orders;

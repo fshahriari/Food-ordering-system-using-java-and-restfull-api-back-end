@@ -143,7 +143,7 @@ public class OrderController {
             throw new ResourceNotFoundException("Order with ID " + orderId + " not found.");
         }
 
-        // Authorization check: User must be the customer who owns the order, the seller of the restaurant for the order, or an admin.
+        // Authorization check
         boolean isCustomer = order.getCustomerId() == userId;
         boolean isSeller = false;
         if (user.getRole() == Role.SELLER) {
@@ -152,21 +152,23 @@ public class OrderController {
                 isSeller = true;
             }
         }
+        boolean isCourier = user.getRole() == Role.COURIER;
         boolean isAdmin = user.getRole() == Role.ADMIN;
 
-        if (!isCustomer && !isSeller && !isAdmin) {
+        if (!isCustomer && !isSeller && !isCourier && !isAdmin) {
             throw new ForbiddenException("You do not have permission to update this order.");
         }
 
         OrderStatus currentStatus = order.getStatus();
 
+        // Prevent changes to orders in terminal states or under admin review
         if (currentStatus == OrderStatus.PENDING_ADMIN_APPROVAL ||
                 currentStatus == OrderStatus.REJECTED_BY_ADMIN ||
-                currentStatus == OrderStatus.COMPLETED ||
-                currentStatus == OrderStatus.CANCELLED) {
+                currentStatus == OrderStatus.COMPLETED) {
             throw new ConflictException("Order status cannot be changed from its current state: " + currentStatus);
         }
 
+        // State transition logic
         boolean isValidTransition = false;
         switch (currentStatus) {
             case PENDING_VENDOR_APPROVAL:
@@ -179,7 +181,16 @@ public class OrderController {
                     isValidTransition = true;
                 }
                 break;
-            //TODO: Add other state transitions for courier, etc. here later
+            case READY_FOR_PICKUP:
+                if (isCourier && newStatus == OrderStatus.ON_THE_WAY) {
+                    isValidTransition = true;
+                }
+                break;
+            case ON_THE_WAY:
+                if (isCourier && newStatus == OrderStatus.COMPLETED) {
+                    isValidTransition = true;
+                }
+                break;
         }
 
         // Allow cancellation by customer or seller from any non-terminal state
@@ -191,7 +202,11 @@ public class OrderController {
             throw new ConflictException("Invalid status transition from " + currentStatus + " to " + newStatus + " for your role.");
         }
 
-        orderDAO.updateOrderStatus(orderId, newStatus);
+        Integer courierIdToSet = (newStatus == OrderStatus.ON_THE_WAY) ? userId : null;
+
+
+        // If logic passes, update the database
+        orderDAO.updateOrderStatus(orderId, newStatus, courierIdToSet);
 
         Map<String, Object> response = new HashMap<>();
         response.put("status", 200);
@@ -216,7 +231,6 @@ public class OrderController {
             throw new ForbiddenException("Only customers can view their order history.");
         }
 
-        // Validate filters
         if (filters.containsKey("date")) {
             String date = filters.get("date");
             if (!date.matches("\\d{4}-\\d{2}-\\d{2}")) {

@@ -28,6 +28,7 @@ public class RequestHandler implements Runnable {
     private final RestaurantController restaurantController;
     private final OrderController orderController;
     private final CustomerController customerController;
+    private final CourierController courierController;
     private final Gson gson;
 
     public RequestHandler(String request, SocketChannel clientChannel) {
@@ -38,6 +39,7 @@ public class RequestHandler implements Runnable {
         this.restaurantController = new RestaurantController();
         this.orderController = new OrderController();
         this.customerController = new CustomerController();
+        this.courierController = new CourierController();
         this.gson = new Gson();
     }
 
@@ -303,6 +305,11 @@ public class RequestHandler implements Runnable {
                         } else if (pathSegments.length == 3 && method.equals("DELETE")) {
                             int restaurantId = Integer.parseInt(pathSegments[2]);
                             responseMap = customerController.handleRemoveFavoriteRestaurant(userId, restaurantId);
+                        }
+                        break;
+                    case "deliveries":
+                        if (path.equals("/deliveries/available") && method.equals("GET")) {
+                            responseMap = courierController.handleGetAvailableDeliveries(userId);
                         }
                         break;
                     case "ratings":
