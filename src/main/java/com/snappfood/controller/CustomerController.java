@@ -131,4 +131,35 @@ public class CustomerController {
         response.put("restaurants", favoriteRestaurants);
         return response;
     }
+
+    /**
+     * Handles removing a restaurant from a customer's favorites list.
+     * @param userId The ID of the authenticated customer.
+     * @param restaurantId The ID of the restaurant to remove from favorites.
+     * @return A map with a success message.
+     * @throws Exception for any validation, authorization, or database errors.
+     */
+    public Map<String, Object> handleRemoveFavoriteRestaurant(Integer userId, int restaurantId) throws Exception {
+        if (userId == null) {
+            throw new UnauthorizedException("You must be logged in to remove a favorite.");
+        }
+
+        User user = userDAO.findUserById(userId);
+        if (user == null || user.getRole() != Role.CUSTOMER) {
+            throw new ForbiddenException("Only customers can remove restaurants from favorites.");
+        }
+
+        // Check if the restaurant exists to provide a better error message, though not strictly required for DELETE.
+        Restaurant restaurant = restaurantDAO.getRestaurantById(restaurantId);
+        if (restaurant == null) {
+            throw new ResourceNotFoundException("Restaurant with ID " + restaurantId + " not found.");
+        }
+
+        restaurantDAO.removeFavoriteRestaurant(userId, restaurantId);
+
+        Map<String, Object> response = new HashMap<>();
+        response.put("status", 200);
+        response.put("message", "Removed from favorites");
+        return response;
+    }
 }

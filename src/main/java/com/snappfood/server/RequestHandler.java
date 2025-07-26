@@ -292,6 +292,9 @@ public class RequestHandler implements Runnable {
                             responseMap = customerController.handleAddFavoriteRestaurant(userId, restaurantId);
                         } else if (path.equals("/favorites") && method.equals("GET")) {
                             responseMap = customerController.handleGetFavoriteRestaurants(userId);
+                        } else if (pathSegments.length == 3 && method.equals("DELETE")) {
+                            int restaurantId = Integer.parseInt(pathSegments[2]);
+                            responseMap = customerController.handleRemoveFavoriteRestaurant(userId, restaurantId);
                         }
                         break;
                     default:

@@ -651,4 +651,20 @@ public class RestaurantDAO {
         }
         return favoriteRestaurants;
     }
+
+    /**
+     * Removes a restaurant from a customer's favorites list.
+     * @param customerId The ID of the customer.
+     * @param restaurantId The ID of the restaurant to remove.
+     * @throws SQLException if a database error occurs.
+     */
+    public void removeFavoriteRestaurant(int customerId, int restaurantId) throws SQLException {
+        String sql = "DELETE FROM " + FAVORITE_RESTAURANTS_TABLE + " WHERE customer_id = ? AND restaurant_id = ?";
+        try (Connection conn = DatabaseManager.getConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+            stmt.setInt(1, customerId);
+            stmt.setInt(2, restaurantId);
+            stmt.executeUpdate();
+        }
+    }
 }
