@@ -262,4 +262,41 @@ public class CustomerController {
         response.put("restaurants", restaurants);
         return response;
     }
+
+    /**
+     * Handles listing food items with optional filters.
+     * @param userId The ID of the authenticated user.
+     * @param filters A map containing the filter criteria (search, categories, min_rating).
+     * @return A map containing the list of matching food items.
+     * @throws Exception for any validation, authorization, or database errors.
+     */
+    public Map<String, Object> handleListItems(Integer userId, Map<String, Object> filters) throws Exception {
+        if (userId == null) {
+            throw new UnauthorizedException("You must be logged in to view items.");
+        }
+
+        if (filters.containsKey("min_rating")) {
+            double minRating = (double) filters.get("min_rating");
+            if (minRating < 1.0 || minRating > 5.0) {
+                throw new InvalidInputException("min_rating must be between 1 and 5.");
+            }
+        }
+
+        if (filters.containsKey("categories")) {
+            List<String> categories = (List<String>) filters.get("categories");
+            for (String category : categories) {
+                try {
+                    FoodCategory.valueOf(category.toUpperCase());
+                } catch (IllegalArgumentException e) {
+                    throw new InvalidInputException("Invalid category provided: " + category);
+                }
+            }
+        }
+
+        List<Food> foodItems = restaurantDAO.findActiveFoodItems(filters);
+        Map<String, Object> response = new HashMap<>();
+        response.put("status", 200);
+        response.put("items", foodItems);
+        return response;
+    }
 }

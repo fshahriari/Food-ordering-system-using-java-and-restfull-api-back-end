@@ -731,4 +731,64 @@ public class RestaurantDAO {
         }
         return restaurants;
     }
+
+    /**
+     * Finds active food items based on a set of filters.
+     * @param filters A map containing filter criteria (search, categories, min_rating).
+     * @return A list of matching Food objects.
+     * @throws SQLException if a database error occurs.
+     */
+    public List<Food> findActiveFoodItems(Map<String, Object> filters) throws SQLException {
+        List<Food> foodItems = new ArrayList<>();
+        List<Object> params = new ArrayList<>();
+
+        StringBuilder sql = new StringBuilder("SELECT fi.* FROM " + FOOD_ITEMS_TABLE + " fi ");
+        sql.append(" JOIN " + RESTAURANTS_TABLE + " r ON fi.restaurant_id = r.id ");
+
+        if (filters.containsKey("min_rating")) {
+            sql.append(" LEFT JOIN " + RATINGS_TABLE + " ra ON r.id = ra.restaurant_id ");
+        }
+
+        sql.append(" WHERE r.id NOT IN (SELECT id FROM " + PENDING_RESTAURANTS_TABLE + ") ");
+
+        if (filters.containsKey("search")) {
+            sql.append(" AND fi.name LIKE ?");
+            params.add("%" + filters.get("search") + "%");
+        }
+
+        if (filters.containsKey("categories")) {
+            List<String> categories = (List<String>) filters.get("categories");
+            if (!categories.isEmpty()) {
+                sql.append(" AND fi.category IN (");
+                for (int i = 0; i < categories.size(); i++) {
+                    sql.append("?");
+                    if (i < categories.size() - 1) {
+                        sql.append(",");
+                    }
+                    params.add(categories.get(i).toUpperCase());
+                }
+                sql.append(")");
+            }
+        }
+
+        sql.append(" GROUP BY fi.id");
+
+        if (filters.containsKey("min_rating")) {
+            sql.append(" HAVING AVG(ra.rating) >= ?");
+            params.add(filters.get("min_rating"));
+        }
+
+        try (Connection conn = DatabaseManager.getConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql.toString())) {
+            for (int i = 0; i < params.size(); i++) {
+                stmt.setObject(i + 1, params.get(i));
+            }
+            try (ResultSet rs = stmt.executeQuery()) {
+                while (rs.next()) {
+                    foodItems.add(extractFoodFromResultSet(rs));
+                }
+            }
+        }
+        return foodItems;
+    }
 }
