@@ -7,7 +7,9 @@ import com.snappfood.exception.*;
 import com.snappfood.model.*;
 
 import java.sql.SQLException;
+import java.sql.Timestamp;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -70,6 +72,11 @@ public class OrderController {
         order.setCourierFee(COURIER_FEE);
         order.setPayPrice(rawPrice + restaurant.getTaxFee() + restaurant.getAdditionalFee() + COURIER_FEE);
         order.setStatus(OrderStatus.PENDING_ADMIN_APPROVAL);
+
+        Timestamp now = new Timestamp(System.currentTimeMillis());
+        order.setCreatedAt(now);
+        order.setUpdatedAt(now);
+
 
         Order createdOrder = orderDAO.createOrder(order);
         if (createdOrder == null) {
@@ -153,7 +160,6 @@ public class OrderController {
 
         OrderStatus currentStatus = order.getStatus();
 
-        // Prevent changes to orders in terminal states or under admin review
         if (currentStatus == OrderStatus.PENDING_ADMIN_APPROVAL ||
                 currentStatus == OrderStatus.REJECTED_BY_ADMIN ||
                 currentStatus == OrderStatus.COMPLETED ||
@@ -190,6 +196,47 @@ public class OrderController {
         Map<String, Object> response = new HashMap<>();
         response.put("status", 200);
         response.put("message", "Order status updated successfully to " + newStatus.name());
+        return response;
+    }
+
+    /**
+     * Handles fetching the order history for the authenticated customer.
+     * @param userId The ID of the authenticated user.
+     * @param filters A map of query parameters (date, status).
+     * @return A map containing the list of orders.
+     * @throws Exception for any validation, authorization, or database errors.
+     */
+    public Map<String, Object> handleGetOrderHistory(Integer userId, Map<String, String> filters) throws Exception {
+        if (userId == null) {
+            throw new UnauthorizedException("You must be logged in to view your order history.");
+        }
+
+        User user = userDAO.findUserById(userId);
+        if (user == null || user.getRole() != Role.CUSTOMER) {
+            throw new ForbiddenException("Only customers can view their order history.");
+        }
+
+        // Validate filters
+        if (filters.containsKey("date")) {
+            String date = filters.get("date");
+            if (!date.matches("\\d{4}-\\d{2}-\\d{2}")) {
+                throw new InvalidInputException("Invalid date format. Please use YYYY-MM-DD.");
+            }
+        }
+        if (filters.containsKey("status")) {
+            String status = filters.get("status");
+            try {
+                OrderStatus.valueOf(status.toUpperCase());
+            } catch (IllegalArgumentException e) {
+                throw new InvalidInputException("Invalid status value: " + status);
+            }
+        }
+
+        List<Order> orderHistory = orderDAO.getOrderHistoryForCustomer(userId, filters);
+
+        Map<String, Object> response = new HashMap<>();
+        response.put("status", 200);
+        response.put("orders", orderHistory);
         return response;
     }
 }

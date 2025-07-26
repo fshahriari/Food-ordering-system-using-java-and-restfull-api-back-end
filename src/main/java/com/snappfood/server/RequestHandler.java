@@ -249,6 +249,8 @@ public class RequestHandler implements Runnable {
                         } else if (pathSegments.length == 3 && method.equals("GET")) {
                             int orderId = Integer.parseInt(pathSegments[2]);
                             responseMap = orderController.handleGetOrderDetails(userId, orderId);
+                        } else if (path.equals("/orders/history") && method.equals("GET")) {
+                            responseMap = orderController.handleGetOrderHistory(userId, queryParams);
                         }
                         break;
                     case "admin":

@@ -31,8 +31,8 @@ public class OrderDAO {
     public Order createOrder(Order order) throws SQLException {
         Connection conn = null;
         String insertOrderSQL = "INSERT INTO " + ORDERS_TABLE +
-                " (customer_id, restaurant_id, status, delivery_address, raw_price, tax_fee, additional_fee, courier_fee, pay_price, coupon_id) " +
-                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+                " (customer_id, restaurant_id, status, delivery_address, raw_price, tax_fee, additional_fee, courier_fee, pay_price, coupon_id, created_at, updated_at) " +
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
         String insertOrderItemSQL = "INSERT INTO " + ORDER_ITEMS_TABLE + " (order_id, food_item_id, quantity) VALUES (?, ?, ?)";
         String updateStockSQL = "UPDATE " + FOOD_ITEMS_TABLE + " SET supply = supply - ? WHERE id = ?";
 
@@ -55,6 +55,8 @@ public class OrderDAO {
             } else {
                 orderStmt.setNull(10, Types.INTEGER);
             }
+            orderStmt.setTimestamp(11, order.getCreatedAt());
+            orderStmt.setTimestamp(12, order.getUpdatedAt());
             orderStmt.executeUpdate();
 
             ResultSet generatedKeys = orderStmt.getGeneratedKeys();
@@ -327,15 +329,14 @@ public class OrderDAO {
             conn = DatabaseManager.getConnection();
             conn.setAutoCommit(false);
 
-            // If the new status is a cancellation or rejection, return stock
             if (newStatus == OrderStatus.CANCELLED || newStatus == OrderStatus.REJECTED_BY_VENDOR) {
                 returnStockForOrder(orderId, conn);
             }
 
-            // Perform the update
             try (PreparedStatement stmt = conn.prepareStatement(updateSql)) {
                 stmt.setString(1, newStatus.name());
-                stmt.setInt(2, orderId);
+                stmt.setTimestamp(2, new Timestamp(System.currentTimeMillis()));
+                stmt.setInt(3, orderId);
                 int rowsAffected = stmt.executeUpdate();
                 if (rowsAffected == 0) {
                     throw new ResourceNotFoundException("Order with ID " + orderId + " not found during update.");
@@ -355,5 +356,43 @@ public class OrderDAO {
                 conn.close();
             }
         }
+    }
+
+    /**
+     * Retrieves the order history for a specific customer, with optional filters.
+     * @param customerId The ID of the customer.
+     * @param filters A map of query parameters (date, status).
+     * @return A list of matching Order objects.
+     * @throws SQLException if a database error occurs.
+     */
+    public List<Order> getOrderHistoryForCustomer(int customerId, Map<String, String> filters) throws SQLException {
+        List<Order> orders = new ArrayList<>();
+        StringBuilder sql = new StringBuilder("SELECT * FROM " + ORDERS_TABLE + " WHERE customer_id = ?");
+        List<Object> params = new ArrayList<>();
+        params.add(customerId);
+
+        if (filters.containsKey("date")) {
+            sql.append(" AND DATE(created_at) = ?");
+            params.add(filters.get("date"));
+        }
+        if (filters.containsKey("status")) {
+            sql.append(" AND status = ?");
+            params.add(filters.get("status").toUpperCase());
+        }
+
+        sql.append(" ORDER BY created_at DESC");
+
+        try (Connection conn = DatabaseManager.getConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql.toString())) {
+            for (int i = 0; i < params.size(); i++) {
+                stmt.setObject(i + 1, params.get(i));
+            }
+            try (ResultSet rs = stmt.executeQuery()) {
+                while (rs.next()) {
+                    orders.add(extractOrderFromResultSet(rs));
+                }
+            }
+        }
+        return orders;
     }
 }

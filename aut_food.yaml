@@ -1164,17 +1164,30 @@ paths:
       tags:
         - buyer
       parameters:
-        - name: search
+        - name: date
           in: query
           schema:
             type: string
-        - name: vendor
+            format: date
+          description: Filter orders by a specific date (e.g., 2025-07-26)
+        - name: status
           in: query
           schema:
             type: string
+            enum:
+              - PENDING_ADMIN_APPROVAL
+              - REJECTED_BY_ADMIN
+              - PENDING_VENDOR_APPROVAL
+              - REJECTED_BY_VENDOR
+              - PREPARING
+              - READY_FOR_PICKUP
+              - ON_THE_WAY
+              - COMPLETED
+              - CANCELLED
+          description: Filter orders by status
       summary: Get order history
       security:
-        - bearerAuth: []
+        - bearerAuth: [ ]
       responses:
         '200':
           description: List of past orders
