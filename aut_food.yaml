@@ -859,7 +859,7 @@ paths:
         - buyer
       summary: List vendors with optional filters
       security:
-        - bearerAuth: []
+        - bearerAuth: [ ]
       requestBody:
         content:
           application/json:
@@ -868,10 +868,19 @@ paths:
               properties:
                 search:
                   type: string
-                keywords:
+                  description: Search term for restaurant names.
+                categories:
                   type: array
                   items:
                     type: string
+                    enum: [ FAST_FOOD, VEGETARIAN, IRANIAN, SEA_FOOD ]
+                  description: Filter by one or more food categories.
+                min_rating:
+                  type: number
+                  format: float
+                  minimum: 1.0
+                  maximum: 5.0
+                  description: Filter by minimum average rating.
       responses:
         '200':
           description: List of vendors

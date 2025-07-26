@@ -275,7 +275,11 @@ public class RequestHandler implements Runnable {
                         }
                         break;
                     case "vendors":
-                        if (pathSegments.length == 3 && method.equals("GET")) {
+                        if (path.equals("/vendors") && method.equals("POST")) {
+                            Type type = new TypeToken<Map<String, Object>>(){}.getType();
+                            Map<String, Object> filters = gson.fromJson(body, type);
+                            responseMap = customerController.handleListVendors(userId, filters);
+                        } else if (pathSegments.length == 3 && method.equals("GET")) {
                             int restaurantId = Integer.parseInt(pathSegments[2]);
                             responseMap = customerController.handleGetVendorDetails(userId, restaurantId);
                         }

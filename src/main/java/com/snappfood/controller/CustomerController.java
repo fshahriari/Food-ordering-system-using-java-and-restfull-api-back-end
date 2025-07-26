@@ -220,4 +220,46 @@ public class CustomerController {
         response.put("message", "Rating submitted successfully.");
         return response;
     }
+
+    /**
+     * Handles listing vendors with optional filters.
+     * @param userId The ID of the authenticated user.
+     * @param filters A map containing the filter criteria (search, categories, min_rating).
+     * @return A map containing the list of matching restaurants.
+     * @throws Exception for any validation, authorization, or database errors.
+     */
+    public Map<String, Object> handleListVendors(Integer userId, Map<String, Object> filters) throws Exception {
+        if (userId == null) {
+            throw new UnauthorizedException("You must be logged in to view vendors.");
+        }
+
+        User user = userDAO.findUserById(userId);
+        if (user == null || user.getRole() != Role.CUSTOMER) {
+            throw new ForbiddenException("Only customers can view vendors.");
+        }
+
+        if (filters.containsKey("min_rating")) {
+            double minRating = (double) filters.get("min_rating");
+            if (minRating < 1.0 || minRating > 5.0) {
+                throw new InvalidInputException("min_rating must be between 1 and 5.");
+            }
+        }
+
+        if (filters.containsKey("categories")) {
+            List<String> categories = (List<String>) filters.get("categories");
+            for (String category : categories) {
+                try {
+                    FoodCategory.valueOf(category.toUpperCase());
+                } catch (IllegalArgumentException e) {
+                    throw new InvalidInputException("Invalid category provided: " + category);
+                }
+            }
+        }
+
+        List<Restaurant> restaurants = restaurantDAO.findActiveRestaurants(filters);
+        Map<String, Object> response = new HashMap<>();
+        response.put("status", 200);
+        response.put("restaurants", restaurants);
+        return response;
+    }
 }

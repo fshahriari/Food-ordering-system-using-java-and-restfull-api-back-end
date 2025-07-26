@@ -6,6 +6,8 @@ import com.snappfood.model.*;
 import java.sql.*;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+
 
 public class RestaurantDAO {
 
@@ -16,6 +18,7 @@ public class RestaurantDAO {
     private static final String MENU_ITEMS_TABLE = "menu_items";
     private static final String RESTAURANT_SELLERS_TABLE = "restaurant_sellers";
     private static final String FAVORITE_RESTAURANTS_TABLE = "favorite_restaurants";
+    private static final String RATINGS_TABLE = "ratings";
 
     public int createPendingRestaurant(Restaurant restaurant) throws SQLException {
         String sql = "INSERT INTO " + PENDING_RESTAURANTS_TABLE + " (name, logo_base64, address, phone_number, working_hours, category) VALUES (?, ?, ?, ?, ?, ?)";
@@ -666,5 +669,66 @@ public class RestaurantDAO {
             stmt.setInt(2, restaurantId);
             stmt.executeUpdate();
         }
+    }
+
+    /**
+     * Finds active restaurants based on a set of filters.
+     * @param filters A map containing filter criteria (search, categories, min_rating).
+     * @return A list of matching Restaurant objects.
+     * @throws SQLException if a database error occurs.
+     */
+    public List<Restaurant> findActiveRestaurants(Map<String, Object> filters) throws SQLException {
+        List<Restaurant> restaurants = new ArrayList<>();
+        List<Object> params = new ArrayList<>();
+
+        StringBuilder sql = new StringBuilder("SELECT r.* FROM " + RESTAURANTS_TABLE + " r ");
+
+        if (filters.containsKey("categories")) {
+            sql.append(" JOIN " + FOOD_ITEMS_TABLE + " fi ON r.id = fi.restaurant_id ");
+        }
+        if (filters.containsKey("min_rating")) {
+            sql.append(" JOIN " + RATINGS_TABLE + " ra ON r.id = ra.restaurant_id ");
+        }
+
+        sql.append(" WHERE 1=1 ");
+
+        if (filters.containsKey("search")) {
+            sql.append(" AND r.name LIKE ?");
+            params.add("%" + filters.get("search") + "%");
+        }
+        if (filters.containsKey("categories")) {
+            List<String> categories = (List<String>) filters.get("categories");
+            if (!categories.isEmpty()) {
+                sql.append(" AND fi.category IN (");
+                for (int i = 0; i < categories.size(); i++) {
+                    sql.append("?");
+                    if (i < categories.size() - 1) {
+                        sql.append(",");
+                    }
+                    params.add(categories.get(i).toUpperCase());
+                }
+                sql.append(")");
+            }
+        }
+
+        sql.append(" GROUP BY r.id");
+
+        if (filters.containsKey("min_rating")) {
+            sql.append(" HAVING AVG(ra.rating) >= ?");
+            params.add(filters.get("min_rating"));
+        }
+
+        try (Connection conn = DatabaseManager.getConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql.toString())) {
+            for (int i = 0; i < params.size(); i++) {
+                stmt.setObject(i + 1, params.get(i));
+            }
+            try (ResultSet rs = stmt.executeQuery()) {
+                while (rs.next()) {
+                    restaurants.add(extractRestaurantFromResultSet(rs));
+                }
+            }
+        }
+        return restaurants;
     }
 }
