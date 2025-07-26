@@ -297,6 +297,12 @@ public class RequestHandler implements Runnable {
                             responseMap = customerController.handleRemoveFavoriteRestaurant(userId, restaurantId);
                         }
                         break;
+                    case "ratings":
+                        if (path.equals("/ratings") && method.equals("POST")) {
+                            Rating rating = gson.fromJson(body, Rating.class);
+                            responseMap = customerController.handleSubmitRating(userId, rating);
+                        }
+                        break;
                     default:
                         statusCode = 404;
                         responseMap = Map.of("error", "Not Found");

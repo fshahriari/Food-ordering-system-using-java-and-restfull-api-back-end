@@ -1,12 +1,13 @@
 package com.snappfood.controller;
 
+import com.snappfood.dao.OrderDAO;
+import com.snappfood.dao.RatingDAO;
 import com.snappfood.dao.RestaurantDAO;
 import com.snappfood.dao.UserDAO;
-import com.snappfood.exception.ForbiddenException;
-import com.snappfood.exception.ResourceNotFoundException;
-import com.snappfood.exception.UnauthorizedException;
+import com.snappfood.exception.*;
 import com.snappfood.model.*;
 
+import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -19,6 +20,8 @@ public class CustomerController {
 
     private final RestaurantDAO restaurantDAO = new RestaurantDAO();
     private final UserDAO userDAO = new UserDAO();
+    private final OrderDAO orderDAO = new OrderDAO();
+    private final RatingDAO ratingDAO = new RatingDAO();
 
     /**
      * Handles fetching the detailed view of a single restaurant, including its menus and food items.
@@ -160,6 +163,61 @@ public class CustomerController {
         Map<String, Object> response = new HashMap<>();
         response.put("status", 200);
         response.put("message", "Removed from favorites");
+        return response;
+    }
+
+    /**
+     * Handles the submission of a new rating for an order.
+     * @param userId The ID of the authenticated customer.
+     * @param rating The rating object parsed from the request body.
+     * @return A map with a success message.
+     * @throws Exception for any validation, authorization, or database errors.
+     */
+    public Map<String, Object> handleSubmitRating(Integer userId, Rating rating) throws Exception {
+        if (userId == null) {
+            throw new UnauthorizedException("You must be logged in to submit a rating.");
+        }
+
+        User user = userDAO.findUserById(userId);
+        if (user == null || user.getRole() != Role.CUSTOMER) {
+            throw new ForbiddenException("Only customers can submit ratings.");
+        }
+
+        if (rating.getOrderId() <= 0) {
+            throw new InvalidInputException("A valid order_id is required.");
+        }
+        if (rating.getRating() < 1 || rating.getRating() > 5) {
+            throw new InvalidInputException("Rating must be between 1 and 5.");
+        }
+
+        Order order = orderDAO.getOrderById(rating.getOrderId());
+        if (order == null) {
+            throw new ResourceNotFoundException("Order with ID " + rating.getOrderId() + " not found.");
+        }
+
+        if (order.getCustomerId() != userId) {
+            throw new ForbiddenException("You can only rate your own orders.");
+        }
+
+        if (order.getStatus() != OrderStatus.COMPLETED) {
+            throw new ConflictException("You can only rate completed orders.");
+        }
+
+        rating.setCustomerId(userId);
+        rating.setRestaurantId(order.getRestaurantId());
+
+        try {
+            ratingDAO.addRating(rating);
+        } catch (SQLException e) {
+            if (e.getSQLState().equals("23000")) { // Integrity constraint violation
+                throw new ConflictException("You have already rated this order.");
+            }
+            throw e; // Re-throw other SQL errors
+        }
+
+        Map<String, Object> response = new HashMap<>();
+        response.put("status", 200);
+        response.put("message", "Rating submitted successfully.");
         return response;
     }
 }
