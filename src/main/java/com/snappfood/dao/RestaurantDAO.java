@@ -15,6 +15,7 @@ public class RestaurantDAO {
     private static final String MENUS_TABLE = "menus";
     private static final String MENU_ITEMS_TABLE = "menu_items";
     private static final String RESTAURANT_SELLERS_TABLE = "restaurant_sellers";
+    private static final String FAVORITE_RESTAURANTS_TABLE = "favorite_restaurants";
 
     public int createPendingRestaurant(Restaurant restaurant) throws SQLException {
         String sql = "INSERT INTO " + PENDING_RESTAURANTS_TABLE + " (name, logo_base64, address, phone_number, working_hours, category) VALUES (?, ?, ?, ?, ?, ?)";
@@ -609,5 +610,22 @@ public class RestaurantDAO {
             e.printStackTrace();
         }
         return false;
+    }
+
+    /**
+     * Adds a restaurant to a customer's favorites list.
+     * Uses INSERT IGNORE to prevent errors if the favorite already exists.
+     * @param customerId The ID of the customer.
+     * @param restaurantId The ID of the restaurant to favorite.
+     * @throws SQLException if a database error occurs.
+     */
+    public void addFavoriteRestaurant(int customerId, int restaurantId) throws SQLException {
+        String sql = "INSERT IGNORE INTO " + FAVORITE_RESTAURANTS_TABLE + " (customer_id, restaurant_id) VALUES (?, ?)";
+        try (Connection conn = DatabaseManager.getConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+            stmt.setInt(1, customerId);
+            stmt.setInt(2, restaurantId);
+            stmt.executeUpdate();
+        }
     }
 }

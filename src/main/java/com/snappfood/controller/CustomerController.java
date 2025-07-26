@@ -5,10 +5,7 @@ import com.snappfood.dao.UserDAO;
 import com.snappfood.exception.ForbiddenException;
 import com.snappfood.exception.ResourceNotFoundException;
 import com.snappfood.exception.UnauthorizedException;
-import com.snappfood.model.Food;
-import com.snappfood.model.Menu;
-import com.snappfood.model.Restaurant;
-import com.snappfood.model.User;
+import com.snappfood.model.*;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -78,6 +75,36 @@ public class CustomerController {
         Map<String, Object> response = new HashMap<>();
         response.put("status", 200);
         response.put("food_item", foodItem);
+        return response;
+    }
+
+    /**
+     * Handles adding a restaurant to a customer's favorites list.
+     * @param userId The ID of the authenticated customer.
+     * @param restaurantId The ID of the restaurant to favorite.
+     * @return A map with a success message.
+     * @throws Exception for any validation, authorization, or database errors.
+     */
+    public Map<String, Object> handleAddFavoriteRestaurant(Integer userId, int restaurantId) throws Exception {
+        if (userId == null) {
+            throw new UnauthorizedException("You must be logged in to add a favorite.");
+        }
+
+        User user = userDAO.findUserById(userId);
+        if (user == null || user.getRole() != Role.CUSTOMER) {
+            throw new ForbiddenException("Only customers can add restaurants to favorites.");
+        }
+
+        Restaurant restaurant = restaurantDAO.getRestaurantById(restaurantId);
+        if (restaurant == null || restaurantDAO.isRestaurantPending(restaurantId)) {
+            throw new ResourceNotFoundException("Restaurant with ID " + restaurantId + " not found or is not active.");
+        }
+
+        restaurantDAO.addFavoriteRestaurant(userId, restaurantId);
+
+        Map<String, Object> response = new HashMap<>();
+        response.put("status", 200);
+        response.put("message", "Restaurant added to favorites successfully.");
         return response;
     }
 }
