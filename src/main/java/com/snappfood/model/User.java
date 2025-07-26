@@ -23,11 +23,9 @@ public class User {
     private String address;
     private int id;
 
-    // This field maps to the 'profileImageBase64' in the YAML
     @SerializedName("profileImageBase64")
     private byte[] profileImage;
 
-    // This field is for internal use and not part of the API JSON
     private String profileImagePath;
 
     private Role role;
@@ -35,10 +33,8 @@ public class User {
     @SerializedName("bank_info")
     private BankInfo bankInfo;
 
-    // Internal field, not part of the API JSON
     private int failedLoginAttempts;
 
-    // Internal field, not part of the API JSON
     private Timestamp lockTime;
 
     public User() {
@@ -56,7 +52,6 @@ public class User {
         this.bankInfo = bankInfo;
     }
 
-    // Getters and Setters for all fields
 
     public int getId() {
         return id;

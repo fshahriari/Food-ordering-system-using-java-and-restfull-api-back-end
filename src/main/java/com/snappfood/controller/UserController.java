@@ -2,6 +2,7 @@ package com.snappfood.controller;
 
 import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
+import com.mysql.cj.protocol.x.SyncFlushDeflaterOutputStream;
 import com.snappfood.dao.UserDAO;
 import com.snappfood.exception.*;
 import com.snappfood.model.BankInfo;
@@ -283,19 +284,19 @@ public class UserController {
         if(user.getRole() == Role.ADMIN) {
             throw new ForbiddenException("admin role is not allowed for signup");
         }
+
+//        System.out.println("bank info: " + user.getBankInfo().getBankName() + " "
+//                + user.getBankInfo().getAccountNumber());
+
         if (user.getRole() == Role.CUSTOMER || user.getRole() == Role.COURIER
             || user.getRole() == Role.SELLER) {
             if (user.getBankInfo() == null) {
                 throw new InvalidInputException("Invalid bank info");
             }
-            if (user.getBankInfo().getBankName() == null
-                    || !user.getBankInfo().getBankName().matches("^[\\p{L}\\s]{1,50}$")
-                    || user.getBankInfo().getBankName().trim().length() < 3) {
+            if (user.getBankInfo().getBankName() == null || user.getBankInfo().getBankName().isEmpty()) {
                 throw new InvalidInputException("Invalid bank name");
             }
-            if (user.getBankInfo().getAccountNumber() == null
-                    || !user.getBankInfo().getAccountNumber().matches("^[0-9]{10,20}$")
-                    || user.getBankInfo().getAccountNumber().trim().length() < 10) {
+            if (user.getBankInfo().getAccountNumber() == null) {
                 throw new InvalidInputException("Invalid account number");
             }
         }
@@ -322,7 +323,7 @@ public class UserController {
         if (success) {
             Map<String, Object> response = new HashMap<>();
             String message;
-            if (user.getRole() == Role.COURIER) {
+            if (user.getRole() == Role.CUSTOMER) {
                 User createdUser = userDAO.findUserByPhone(user.getPhone());
                 String token = SessionRegistry.createSession(createdUser.getId());
                 message = "User registered successfully and is now logged in.";
