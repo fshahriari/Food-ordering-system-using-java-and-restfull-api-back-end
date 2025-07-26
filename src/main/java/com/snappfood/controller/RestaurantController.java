@@ -60,6 +60,9 @@ public class RestaurantController {
     private static final long REMOVE_ITEM_FROM_MENU_RATE_LIMIT_WINDOW_MS = 3600000; // 1 hour
     private final Map<Integer, RequestTracker> removeItemFromMenuTrackers = new ConcurrentHashMap<>();
 
+    private static final int MAX_GET_MENU_REQUESTS = 30;
+    private static final long GET_MENU_RATE_LIMIT_WINDOW_MS = 60000; // 1 minute
+    private final Map<String, RequestTracker> getMenuTrackers = new ConcurrentHashMap<>();
 
 
     public Map<String, Object> handleCreateRestaurant(Restaurant restaurant, Integer sellerId) throws Exception {
@@ -177,11 +180,6 @@ public class RestaurantController {
             throw new InvalidInputException("item_id is required in the request body.");
         }
 
-        Menu menu = restaurantDAO.getMenuByTitle(restaurantId, menuTitle);
-        if (menu == null) {
-            throw new ResourceNotFoundException("Menu with title '" + menuTitle + "' not found.");
-        }
-
         Food food = restaurantDAO.getFoodItemById(foodItemId);
         if (food == null || food.getRestaurantId() != restaurantId) {
             throw new ResourceNotFoundException("Food item with ID " + foodItemId + " not found in this restaurant's master list.");
@@ -192,11 +190,11 @@ public class RestaurantController {
             throw new TooManyRequestsException("You are adding items to menus too frequently. Please try again later.");
         }
 
-        if (restaurantDAO.isItemInMenu(menu.getId(), foodItemId)) {
-            throw new ConflictException("This food item is already in the menu.");
+        Menu menu = restaurantDAO.getMenuByTitle(restaurantId, menuTitle);
+        if (menu == null) {
+            throw new ResourceNotFoundException("Menu with title '" + menuTitle + "' not found.");
         }
-
-        restaurantDAO.addFoodItemToMenu(menu.getId(), foodItemId);
+        restaurantDAO.addFoodItemToMenu((int)menu.getId(), (int)foodItemId);
 
         Map<String, Object> response = new HashMap<>();
         response.put("status", 200);
@@ -214,6 +212,10 @@ public class RestaurantController {
         Food existingFood = restaurantDAO.getFoodItemById(itemId);
         if (existingFood == null || existingFood.getRestaurantId() != restaurantId) {
             throw new ResourceNotFoundException("Food item with ID " + itemId + " not found in this restaurant.");
+        }
+
+        if (restaurantDAO.isFoodItemInActiveOrder((int) updatedFood.getId())) {
+            throw new ConflictException("Cannot update the food item because it's in an active order.");
         }
 
         boolean isUpdated = false;
@@ -306,6 +308,15 @@ public class RestaurantController {
             throw new ConflictException("Cannot delete food item. It is currently part of one or more menus. Please remove it from all menus first.");
         }
 
+        if (restaurantDAO.isAnyFoodItemInActiveOrder(restaurantId)) {
+            throw new ConflictException("Cannot delete food item. It is currently part of an active order. Please complete or cancel the order first.");
+        }
+
+        RequestTracker tracker = deleteFoodItemTrackers.computeIfAbsent(sellerId, k -> new RequestTracker(MAX_DELETE_FOOD_REQUESTS, DELETE_FOOD_RATE_LIMIT_WINDOW_MS));
+        if (!tracker.allowRequest()) {
+            throw new TooManyRequestsException("You are deleting food items too frequently. Please try again later.");
+        }
+
         restaurantDAO.deleteFoodItem(itemId);
 
         Map<String, Object> response = new HashMap<>();
@@ -373,6 +384,10 @@ public class RestaurantController {
             throw new ResourceNotFoundException("Menu with title '" + menuTitle + "' does not exist for this restaurant.");
         }
 
+        if (restaurantDAO.isMenuEmpty(restaurantId, menuTitle)) {
+            throw new ConflictException("Cannot delete menu. It is currently empty. Please add items to it first.");
+        }
+
         Menu menu = restaurantDAO.getMenuByTitle(restaurantId, menuTitle);
         if (menu == null) {
             throw new ResourceNotFoundException("Menu with title '" + menuTitle + "' not found.");
@@ -402,7 +417,9 @@ public class RestaurantController {
             throw new ResourceNotFoundException("Food item with ID " + itemId + " not found in this menu.");
         }
 
-        //TODO You might want to add a check for active orders here in the future
+        if (restaurantDAO.isMenuItemInActiveOrder(restaurantId)) {
+            throw new ConflictException("Can not remove the food item 'cause it's in an active order.");
+        }
 
         RequestTracker tracker = removeItemFromMenuTrackers.computeIfAbsent(sellerId, k -> new RequestTracker(MAX_REMOVE_ITEM_FROM_MENU_REQUESTS, REMOVE_ITEM_FROM_MENU_RATE_LIMIT_WINDOW_MS));
         if (!tracker.allowRequest()) {
@@ -537,9 +554,41 @@ public class RestaurantController {
         return response;
     }
 
-    public Map<String, Object> handleGetRestaurantMenu(Integer restaurantId) throws Exception {
-        // TODO: Implement logic
-        return null; // Placeholder
+    public Map<String, Object> handleGetRestaurantMenu(Integer restaurantId, String clientIp) throws Exception {
+        if (restaurantId == null || restaurantId <= 0) {
+            throw new InvalidInputException("Invalid restaurant ID.");
+        }
+
+        RequestTracker tracker = getMenuTrackers.computeIfAbsent(clientIp,
+                k -> new RequestTracker(MAX_GET_MENU_REQUESTS, GET_MENU_RATE_LIMIT_WINDOW_MS));
+        if (!tracker.allowRequest()) {
+            throw new TooManyRequestsException("Too many menu requests. Please try again later.");
+        }
+
+        Restaurant restaurant = restaurantDAO.getRestaurantById(restaurantId);
+        if (restaurant == null) {
+            throw new ResourceNotFoundException("Restaurant with ID " + restaurantId + " not found.");
+        }
+
+        if (restaurantDAO.isRestaurantPending(restaurantId)) {
+            throw new ForbiddenException("Cannot view menus of a restaurant that is pending approval.");
+        }
+
+        List<Menu> menus = restaurantDAO.getMenusByRestaurantId(restaurantId);
+        Map<String, List<Food>> menuItems = new HashMap<>();
+
+        for (Menu menu : menus) {
+            List<Food> foodItems = restaurantDAO.getFoodItemsByMenuId(menu.getId());
+            menuItems.put(menu.getTitle(), foodItems);
+        }
+
+        Map<String, Object> response = new HashMap<>();
+        response.put("status", 200);
+        response.put("restaurant_id", restaurantId);
+        response.put("restaurant_name", restaurant.getName());
+        response.put("menus", menuItems);
+
+        return response;
     }
 
 

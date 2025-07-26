@@ -505,16 +505,109 @@ public class RestaurantDAO {
     }
 
     public boolean isFoodItemInActiveOrder(int foodId) throws SQLException {
-        //TODO
-        // This is a placeholder. You'll need to implement the actual logic
-        // to check if the food item is in an order that is not yet completed.
+        String sql = "SELECT COUNT(*) FROM orders o " +
+                     "JOIN order_items oi ON o.id = oi.order_id " +
+                     "WHERE oi.food_item_id = ? AND o.status NOT IN ('completed', 'cancelled')";
+        try (Connection conn = DatabaseManager.getConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+            stmt.setInt(1, foodId);
+            try (ResultSet rs = stmt.executeQuery()) {
+                if (rs.next()) {
+                    return rs.getInt(1) > 0;
+                }
+            }
+        }
         return false;
     }
 
     public boolean isMenuItemInActiveOrder(int restaurantId) throws SQLException {
-        //TODO
-        // This is a placeholder. You'll need to implement the actual logic to check
-        // if any food item in the menu is part of an active order.
+        String sql = "SELECT COUNT(*) FROM orders o " +
+                     "JOIN order_items oi ON o.id = oi.order_id " +
+                     "JOIN food_items fi ON oi.food_item_id = fi.id " +
+                     "JOIN menu_items mi ON fi.id = mi.food_item_id " +
+                     "JOIN menus m ON mi.menu_id = m.id " +
+                     "WHERE m.restaurant_id = ? AND o.status NOT IN ('completed', 'cancelled')";
+        try (Connection conn = DatabaseManager.getConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+            stmt.setInt(1, restaurantId);
+            try (ResultSet rs = stmt.executeQuery()) {
+                if (rs.next()) {
+                    return rs.getInt(1) > 0;
+                }
+            }
+        }
+        return false;
+    }
+
+    public boolean isMenuEmpty(int restaurantId, String menuTitle) {
+        try {
+            Menu menu = getMenuByTitle(restaurantId, menuTitle);
+            if (menu != null) {
+                List<Food> foodItems = getFoodItemsForMenu(menu.getId());
+                return foodItems.isEmpty();
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        return true;
+    }
+
+    public List<Menu> getMenusByRestaurantId(Integer restaurantId) {
+        List<Menu> menus = new ArrayList<>();
+        String sql = "SELECT * FROM " + MENUS_TABLE + " WHERE restaurant_id = ?";
+        try (Connection conn = DatabaseManager.getConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+            stmt.setInt(1, restaurantId);
+            try (ResultSet rs = stmt.executeQuery()) {
+                while (rs.next()) {
+                    Menu menu = new Menu();
+                    menu.setId(rs.getInt("id"));
+                    menu.setRestaurantId(rs.getInt("restaurant_id"));
+                    menu.setTitle(rs.getString("title"));
+                    menus.add(menu);
+                }
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        return menus;
+    }
+
+    public List<Food> getFoodItemsByMenuId(int id) {
+        List<Food> foodItems = new ArrayList<>();
+        String sql = "SELECT f.* FROM " + FOOD_ITEMS_TABLE + " f " +
+                     "JOIN " + MENU_ITEMS_TABLE + " mi ON f.id = mi.food_item_id " +
+                     "WHERE mi.menu_id = ?";
+        try (Connection conn = DatabaseManager.getConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+            stmt.setInt(1, id);
+            try (ResultSet rs = stmt.executeQuery()) {
+                while (rs.next()) {
+                    foodItems.add(extractFoodFromResultSet(rs));
+                }
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        return foodItems;
+    }
+
+    public boolean isAnyFoodItemInActiveOrder(int restaurantId) {
+        String sql = "SELECT COUNT(*) FROM orders o " +
+                     "JOIN order_items oi ON o.id = oi.order_id " +
+                     "JOIN food_items fi ON oi.food_item_id = fi.id " +
+                     "WHERE fi.restaurant_id = ? AND o.status NOT IN ('completed', 'cancelled')";
+        try (Connection conn = DatabaseManager.getConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+            stmt.setInt(1, restaurantId);
+            try (ResultSet rs = stmt.executeQuery()) {
+                if (rs.next()) {
+                    return rs.getInt(1) > 0;
+                }
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
         return false;
     }
 }
