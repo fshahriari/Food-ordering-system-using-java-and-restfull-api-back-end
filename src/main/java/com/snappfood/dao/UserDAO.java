@@ -58,8 +58,8 @@ public class UserDAO {
     }
 
     public boolean insertUser(User user) throws SQLException {
-        String sql = "INSERT INTO users (full_name, phone, email, password, role, address, profile_image, bank_name, account_number) " +
-                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)";
+        String sql = "INSERT INTO users (full_name, phone, email, password, role, address, profile_image, bank_name, account_number, courier_status) " +
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
         try (Connection conn = DatabaseManager.getConnection();
              PreparedStatement stmt = conn.prepareStatement(sql)) {
             stmt.setString(1, user.getName());
@@ -78,6 +78,12 @@ public class UserDAO {
                 stmt.setNull(8, java.sql.Types.VARCHAR);
                 stmt.setNull(9, java.sql.Types.VARCHAR);
             }
+            if (user instanceof courier) {
+                stmt.setString(10, ((courier) user).getCourierStatus().name());
+            } else {
+                stmt.setNull(10, Types.VARCHAR);
+            }
+
 
             stmt.executeUpdate();
             return true;
@@ -85,8 +91,8 @@ public class UserDAO {
     }
 
     private boolean insertUser(User user, Connection existingConnection) throws SQLException {
-        String sql = "INSERT INTO users (full_name, phone, email, password, role, address, profile_image, bank_name, account_number) " +
-                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)";
+        String sql = "INSERT INTO users (full_name, phone, email, password, role, address, profile_image, bank_name, account_number, courier_status) " +
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
         Connection conn = null;
         try {
             conn = (existingConnection != null) ? existingConnection : DatabaseManager.getConnection();
@@ -107,6 +113,11 @@ public class UserDAO {
                 stmt.setNull(8, java.sql.Types.VARCHAR);
                 stmt.setNull(9, java.sql.Types.VARCHAR);
             }
+            if (user instanceof courier) {
+                stmt.setString(10, ((courier) user).getCourierStatus().name());
+            } else {
+                stmt.setNull(10, Types.VARCHAR);
+            }
 
             stmt.executeUpdate();
             return true;
@@ -118,8 +129,8 @@ public class UserDAO {
     }
 
     public boolean insertPendingUser(User user) throws SQLException {
-        String sql = "INSERT INTO pending_users (full_name, phone, email, password, role, address, profile_image, bank_name, account_number, status) " +
-                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+        String sql = "INSERT INTO pending_users (full_name, phone, email, password, role, address, profile_image, bank_name, account_number, status, courier_status) " +
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
         try (Connection conn = DatabaseManager.getConnection();
              PreparedStatement stmt = conn.prepareStatement(sql)) {
             stmt.setString(1, user.getName());
@@ -140,6 +151,11 @@ public class UserDAO {
             }
 
             stmt.setString(10, ConfirmStatus.PENDING.name());
+            if (user instanceof courier) {
+                stmt.setString(11, ((courier) user).getCourierStatus().name());
+            } else {
+                stmt.setNull(11, Types.VARCHAR);
+            }
             stmt.executeUpdate();
             return true;
         }
@@ -342,7 +358,22 @@ public class UserDAO {
     }
 
     private User extractUserFromResultSet(ResultSet rs) throws SQLException {
-        User user = new User();
+        User user;
+        Role role = null;
+        for (Role r : Role.values()) {
+            if (r.getValue().equalsIgnoreCase(rs.getString("role"))) {
+                role = r;
+                break;
+            }
+        }
+
+        if (role == Role.COURIER) {
+            user = new courier();
+            ((courier) user).setCourierStatus(CourierStatus.valueOf(rs.getString("courier_status")));
+        } else {
+            user = new User();
+        }
+
         user.setId(rs.getInt("id"));
         user.setName(rs.getString("full_name"));
         user.setPhone(rs.getString("phone"));
@@ -358,13 +389,6 @@ public class UserDAO {
             user.setBankInfo(bankInfo);
         }
 
-        Role role = null;
-        for (Role r : Role.values()) {
-            if (r.getValue().equalsIgnoreCase(rs.getString("role"))) {
-                role = r;
-                break;
-            }
-        }
         user.setRole(role);
 
         user.setFailedLoginAttempts(rs.getInt("failed_login_attempts"));
@@ -374,7 +398,7 @@ public class UserDAO {
     }
 
     public boolean updateUser(User user) throws SQLException {
-        String sql = "UPDATE users SET full_name = ?, phone = ?, email = ?, address = ?, profile_image = ?, bank_name = ?, account_number = ? WHERE id = ?";
+        String sql = "UPDATE users SET full_name = ?, phone = ?, email = ?, address = ?, profile_image = ?, bank_name = ?, account_number = ?, courier_status = ? WHERE id = ?";
         try (Connection conn = DatabaseManager.getConnection();
              PreparedStatement stmt = conn.prepareStatement(sql)) {
 
@@ -393,7 +417,13 @@ public class UserDAO {
                 stmt.setNull(7, java.sql.Types.VARCHAR);
             }
 
-            stmt.setInt(8, user.getId());
+            if (user instanceof courier) {
+                stmt.setString(8, ((courier) user).getCourierStatus().name());
+            } else {
+                stmt.setNull(8, Types.VARCHAR);
+            }
+
+            stmt.setInt(9, user.getId());
 
             int rowsAffected = stmt.executeUpdate();
             return rowsAffected > 0;
