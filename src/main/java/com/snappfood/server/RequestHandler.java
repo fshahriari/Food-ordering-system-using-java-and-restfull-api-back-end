@@ -262,6 +262,8 @@ public class RequestHandler implements Runnable {
                             responseMap = adminController.handleListAllUsers(userId);
                         } else if (path.equals("/admin/orders") && method.equals("GET")) {
                             responseMap = adminController.handleGetAllOrders(userId, queryParams);
+                        } else if (path.equals("/admin/transactions") && method.equals("GET")) {
+                            responseMap = adminController.handleGetAllTransactions(userId, queryParams);
                         } else if (path.equals("/admin/pending-users") && method.equals("GET")) {
                             responseMap = adminController.handleGetPendingUsers(userId);
                         }  else if (path.equals("/admin/pending-users") && method.equals("PUT")) {

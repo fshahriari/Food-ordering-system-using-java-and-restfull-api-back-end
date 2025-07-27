@@ -6,6 +6,7 @@ import com.snappfood.model.*;
 import java.sql.*;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 /**
  * Data Access Object for handling all database operations related to wallets and transactions.
@@ -14,6 +15,11 @@ public class WalletDAO {
 
     private static final String WALLETS_TABLE = "wallets";
     private static final String TRANSACTIONS_TABLE = "transactions";
+    private static final String USERS_TABLE = "users";
+    private static final String ORDERS_TABLE = "orders";
+    private static final String RESTAURANTS_TABLE = "restaurants";
+    private static final String ORDER_ITEMS_TABLE = "order_items";
+    private static final String FOOD_ITEMS_TABLE = "food_items";
 
     /**
      * Creates a new wallet for a user, typically upon registration.
@@ -194,5 +200,74 @@ public class WalletDAO {
             }
         }
         return transactions;
+    }
+
+    /**
+     * Retrieves all transactions in the system, with optional filters for the admin.
+     * @param filters A map of query parameters.
+     * @return A list of all matching transactions.
+     * @throws SQLException if a database error occurs.
+     */
+    public List<Transaction> getAllTransactions(Map<String, String> filters) throws SQLException {
+        List<Transaction> transactions = new ArrayList<>();
+        StringBuilder sql = new StringBuilder("SELECT DISTINCT t.* FROM " + TRANSACTIONS_TABLE + " t " +
+                "LEFT JOIN " + USERS_TABLE + " u ON t.user_id = u.id " +
+                "LEFT JOIN " + ORDERS_TABLE + " o ON t.order_id = o.id " +
+                "LEFT JOIN " + USERS_TABLE + " c ON o.customer_id = c.id " +
+                "LEFT JOIN " + USERS_TABLE + " cr ON o.courier_id = cr.id " +
+                "LEFT JOIN " + RESTAURANTS_TABLE + " r ON o.restaurant_id = r.id " +
+                "LEFT JOIN " + ORDER_ITEMS_TABLE + " oi ON o.id = oi.order_id " +
+                "LEFT JOIN " + FOOD_ITEMS_TABLE + " fi ON oi.food_item_id = fi.id " +
+                "WHERE 1=1");
+        List<Object> params = new ArrayList<>();
+
+        if (filters.containsKey("search")) {
+            sql.append(" AND (u.full_name LIKE ? OR c.full_name LIKE ? OR cr.full_name LIKE ? OR r.name LIKE ? OR fi.name LIKE ?)");
+            String searchTerm = "%" + filters.get("search") + "%";
+            params.add(searchTerm);
+            params.add(searchTerm);
+            params.add(searchTerm);
+            params.add(searchTerm);
+            params.add(searchTerm);
+        }
+        if (filters.containsKey("user")) {
+            sql.append(" AND u.full_name LIKE ?");
+            params.add("%" + filters.get("user") + "%");
+        }
+        if (filters.containsKey("method")) {
+            sql.append(" AND t.type = ?");
+            params.add(filters.get("method").toUpperCase());
+        }
+        if (filters.containsKey("status")) {
+            sql.append(" AND t.status = ?");
+            params.add(filters.get("status").toUpperCase());
+        }
+
+        sql.append(" ORDER BY t.created_at DESC");
+
+        try (Connection conn = DatabaseManager.getConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql.toString())) {
+            for (int i = 0; i < params.size(); i++) {
+                stmt.setObject(i + 1, params.get(i));
+            }
+            try (ResultSet rs = stmt.executeQuery()) {
+                while (rs.next()) {
+                    transactions.add(extractTransactionFromResultSet(rs));
+                }
+            }
+        }
+        return transactions;
+    }
+
+    private Transaction extractTransactionFromResultSet(ResultSet rs) throws SQLException {
+        Transaction transaction = new Transaction();
+        transaction.setId(rs.getInt("id"));
+        transaction.setUserId(rs.getInt("user_id"));
+        transaction.setOrderId((Integer) rs.getObject("order_id"));
+        transaction.setAmount(rs.getInt("amount"));
+        transaction.setType(TransactionType.valueOf(rs.getString("type")));
+        transaction.setStatus(TransactionStatus.valueOf(rs.getString("status")));
+        transaction.setCreatedAt(rs.getTimestamp("created_at"));
+        return transaction;
     }
 }

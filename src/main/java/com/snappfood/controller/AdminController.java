@@ -3,6 +3,7 @@ package com.snappfood.controller;
 import com.snappfood.dao.OrderDAO;
 import com.snappfood.dao.RestaurantDAO;
 import com.snappfood.dao.UserDAO;
+import com.snappfood.dao.WalletDAO;
 import com.snappfood.exception.ForbiddenException;
 import com.snappfood.exception.InvalidInputException;
 import com.snappfood.exception.UnauthorizedException;
@@ -18,6 +19,7 @@ public class AdminController {
     private final UserDAO userDAO = new UserDAO();
     private final OrderDAO orderDAO = new OrderDAO();
     private final RestaurantDAO restaurantDAO = new RestaurantDAO();
+    private final WalletDAO walletDAO = new WalletDAO();
 
     public List<User> getPendingSellersAndCouriers() {
         try {
@@ -217,6 +219,22 @@ public class AdminController {
         Map<String, Object> response = new HashMap<>();
         response.put("status", 200);
         response.put("orders", orders);
+        return response;
+    }
+
+    /**
+     * Handles fetching a list of all transactions with optional filters.
+     * @param userId The ID of the authenticated admin.
+     * @param filters A map of query parameters.
+     * @return A map containing the list of all matching transactions.
+     * @throws Exception for any validation, authorization, or database errors.
+     */
+    public Map<String, Object> handleGetAllTransactions(Integer userId, Map<String, String> filters) throws Exception {
+        authorizeAdmin(userId);
+        List<Transaction> transactions = walletDAO.getAllTransactions(filters);
+        Map<String, Object> response = new HashMap<>();
+        response.put("status", 200);
+        response.put("transactions", transactions);
         return response;
     }
 }
