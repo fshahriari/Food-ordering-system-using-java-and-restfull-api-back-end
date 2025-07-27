@@ -189,4 +189,18 @@ public class AdminController {
         return response;
     }
 
+    /**
+     * Handles fetching a list of all active users.
+     * @param userId The ID of the authenticated admin.
+     * @return A map containing the list of all users.
+     * @throws Exception for any validation, authorization, or database errors.
+     */
+    public Map<String, Object> handleListAllUsers(Integer userId) throws Exception {
+        authorizeAdmin(userId);
+        List<User> users = userDAO.getAllActiveUsers();
+        Map<String, Object> response = new HashMap<>();
+        response.put("status", 200);
+        response.put("users", users);
+        return response;
+    }
 }

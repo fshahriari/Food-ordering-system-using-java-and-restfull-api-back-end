@@ -258,7 +258,9 @@ public class RequestHandler implements Runnable {
                         }
                         break;
                     case "admin":
-                        if (path.equals("/admin/pending-users") && method.equals("GET")) {
+                        if (path.equals("/admin/users") && method.equals("GET")) {
+                            responseMap = adminController.handleListAllUsers(userId);
+                        } else if (path.equals("/admin/pending-users") && method.equals("GET")) {
                             responseMap = adminController.handleGetPendingUsers(userId);
                         }  else if (path.equals("/admin/pending-users") && method.equals("PUT")) {
                             Type listType = new TypeToken<List<UserStatusUpdate>>() {}.getType();

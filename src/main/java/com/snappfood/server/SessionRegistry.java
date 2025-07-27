@@ -56,13 +56,12 @@ public class SessionRegistry {
      * @param token The session token to invalidate.
      */
     public static void invalidateSession(String token) {
-        Integer userId = activeSessions.remove(token); // Remove token from activeSessions
+        Integer userId = activeSessions.remove(token);
         if (userId != null) {
-            userIdToToken.remove(userId); // Remove user from userIdToToken
+            userIdToToken.remove(userId);
         }
     }
 
-    // Add this new method to your SessionRegistry class
     /**
      * Retrieves the token for a given user ID.
      *

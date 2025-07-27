@@ -511,4 +511,22 @@ public class UserDAO {
         }
         return false;
     }
+
+    /**
+            * Retrieves all active users from the database.
+     * @return A list of all User objects.
+            * @throws SQLException if a database error occurs.
+            */
+    public List<User> getAllActiveUsers() throws SQLException {
+        List<User> users = new ArrayList<>();
+        String sql = "SELECT * FROM " + USERS_TABLE + " ORDER BY full_name ASC";
+        try (Connection conn = DatabaseManager.getConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql);
+             ResultSet rs = stmt.executeQuery()) {
+            while (rs.next()) {
+                users.add(extractUserFromResultSet(rs));
+            }
+        }
+        return users;
+    }
 }
