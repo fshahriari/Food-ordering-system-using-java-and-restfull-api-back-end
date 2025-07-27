@@ -23,8 +23,7 @@ public class OrderController {
     private final UserDAO userDAO = new UserDAO();
     private final WalletDAO walletDAO = new WalletDAO();
 
-    // Using TT (Toman Thousands) as the unit, 5TT = 5000 Toman
-    private static final int COURIER_FEE = 50000;
+    private static final int COURIER_FEE = 50000; //Toman
 
     /**
      * Handles the creation of a new order.
