@@ -86,6 +86,16 @@ public class UserDAO {
 
 
             stmt.executeUpdate();
+
+            try (ResultSet generatedKeys = stmt.getGeneratedKeys()) {
+                if (generatedKeys.next()) {
+                    int userId = generatedKeys.getInt(1);
+                    new WalletDAO().createWallet(userId);
+                } else {
+                    throw new SQLException("Creating user failed, no ID obtained.");
+                }
+            }
+
             return true;
         }
     }
@@ -120,6 +130,14 @@ public class UserDAO {
             }
 
             stmt.executeUpdate();
+            try (ResultSet generatedKeys = stmt.getGeneratedKeys()) {
+                if (generatedKeys.next()) {
+                    int userId = generatedKeys.getInt(1);
+                    new WalletDAO().createWallet(userId); // Create wallet for new user
+                } else {
+                    throw new SQLException("Creating user failed, no ID obtained.");
+                }
+            }
             return true;
         }  finally {
             if (existingConnection == null && conn != null) {

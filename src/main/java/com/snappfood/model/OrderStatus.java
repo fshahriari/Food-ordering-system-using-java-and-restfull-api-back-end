@@ -1,9 +1,11 @@
 package com.snappfood.model;
 
 /**
- * Defines the lifecycle states of an order, including approval steps.
+ * Defines the lifecycle states of an order, including approval and payment steps.
  */
 public enum OrderStatus {
+    PENDING_PAYMENT,
+    UNPAID_AND_CANCELLED,
     PENDING_ADMIN_APPROVAL,
     REJECTED_BY_ADMIN,
     PENDING_VENDOR_APPROVAL,

@@ -3,6 +3,7 @@ package com.snappfood.controller;
 import com.snappfood.dao.OrderDAO;
 import com.snappfood.dao.RestaurantDAO;
 import com.snappfood.dao.UserDAO;
+import com.snappfood.dao.WalletDAO;
 import com.snappfood.exception.*;
 import com.snappfood.model.*;
 
@@ -20,6 +21,7 @@ public class OrderController {
     private final OrderDAO orderDAO = new OrderDAO();
     private final RestaurantDAO restaurantDAO = new RestaurantDAO();
     private final UserDAO userDAO = new UserDAO();
+    private final WalletDAO walletDAO = new WalletDAO();
 
     // Using TT (Toman Thousands) as the unit, 5TT = 5000 Toman
     private static final int COURIER_FEE = 50000;
@@ -71,7 +73,7 @@ public class OrderController {
         order.setAdditionalFee(restaurant.getAdditionalFee());
         order.setCourierFee(COURIER_FEE);
         order.setPayPrice(rawPrice + restaurant.getTaxFee() + restaurant.getAdditionalFee() + COURIER_FEE);
-        order.setStatus(OrderStatus.PENDING_ADMIN_APPROVAL);
+        order.setStatus(OrderStatus.PENDING_PAYMENT);
 
         Timestamp now = new Timestamp(System.currentTimeMillis());
         order.setCreatedAt(now);
@@ -85,7 +87,7 @@ public class OrderController {
 
         Map<String, Object> response = new HashMap<>();
         response.put("status", 200);
-        response.put("message", "Order submitted successfully and is pending admin approval.");
+        response.put("message", "Order submitted successfully and is pending payment.");
         response.put("order", createdOrder);
         return response;
     }
@@ -143,7 +145,6 @@ public class OrderController {
             throw new ResourceNotFoundException("Order with ID " + orderId + " not found.");
         }
 
-        // Authorization check
         boolean isCustomer = order.getCustomerId() == userId;
         boolean isSeller = false;
         if (user.getRole() == Role.SELLER) {
@@ -162,15 +163,20 @@ public class OrderController {
         OrderStatus currentStatus = order.getStatus();
 
         // Prevent changes to orders in terminal states or under admin review
-        if (currentStatus == OrderStatus.PENDING_ADMIN_APPROVAL ||
-                currentStatus == OrderStatus.REJECTED_BY_ADMIN ||
-                currentStatus == OrderStatus.COMPLETED) {
+        if (currentStatus == OrderStatus.REJECTED_BY_ADMIN ||
+                currentStatus == OrderStatus.COMPLETED ||
+                currentStatus == OrderStatus.UNPAID_AND_CANCELLED) {
             throw new ConflictException("Order status cannot be changed from its current state: " + currentStatus);
         }
 
-        // State transition logic
         boolean isValidTransition = false;
+        Integer courierIdToSet = null;
         switch (currentStatus) {
+            case PENDING_ADMIN_APPROVAL:
+                if (isAdmin && (newStatus == OrderStatus.PENDING_VENDOR_APPROVAL || newStatus == OrderStatus.REJECTED_BY_ADMIN)) {
+                    isValidTransition = true;
+                }
+                break;
             case PENDING_VENDOR_APPROVAL:
                 if (isSeller && (newStatus == OrderStatus.PREPARING || newStatus == OrderStatus.REJECTED_BY_VENDOR)) {
                     isValidTransition = true;
@@ -183,11 +189,18 @@ public class OrderController {
                 break;
             case READY_FOR_PICKUP:
                 if (isCourier && newStatus == OrderStatus.ON_THE_WAY) {
+                    if (order.getCourierId() != null) {
+                        throw new ConflictException("Delivery already assigned.");
+                    }
+                    courierIdToSet = userId;
                     isValidTransition = true;
                 }
                 break;
             case ON_THE_WAY:
                 if (isCourier && newStatus == OrderStatus.COMPLETED) {
+                    if (order.getCourierId() != userId) {
+                        throw new ForbiddenException("You are not the assigned courier for this order.");
+                    }
                     isValidTransition = true;
                 }
                 break;
@@ -202,11 +215,14 @@ public class OrderController {
             throw new ConflictException("Invalid status transition from " + currentStatus + " to " + newStatus + " for your role.");
         }
 
-        Integer courierIdToSet = (newStatus == OrderStatus.ON_THE_WAY) ? userId : null;
-
-
-        // If logic passes, update the database
         orderDAO.updateOrderStatus(orderId, newStatus, courierIdToSet);
+
+        if (newStatus == OrderStatus.COMPLETED) {
+            Restaurant restaurant = restaurantDAO.getRestaurantById(order.getRestaurantId());
+            User seller = userDAO.findUserByPhone(restaurant.getSellerPhoneNumbers().get(0)); // Assuming one seller
+            walletDAO.processOrderPayment(order, seller.getId(), userId);
+        }
+
 
         Map<String, Object> response = new HashMap<>();
         response.put("status", 200);

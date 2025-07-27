@@ -29,6 +29,7 @@ public class RequestHandler implements Runnable {
     private final OrderController orderController;
     private final CustomerController customerController;
     private final CourierController courierController;
+    private final WalletController walletController;
     private final Gson gson;
 
     public RequestHandler(String request, SocketChannel clientChannel) {
@@ -40,6 +41,7 @@ public class RequestHandler implements Runnable {
         this.orderController = new OrderController();
         this.customerController = new CustomerController();
         this.courierController = new CourierController();
+        this.walletController = new WalletController();
         this.gson = new Gson();
     }
 
@@ -307,6 +309,20 @@ public class RequestHandler implements Runnable {
                             responseMap = customerController.handleRemoveFavoriteRestaurant(userId, restaurantId);
                         }
                         break;
+                    case "wallet":
+                        if (path.equals("/wallet/top-up") && method.equals("POST")) {
+                            Type type = new TypeToken<Map<String, Double>>(){}.getType();
+                            Map<String, Double> requestBody = gson.fromJson(body, type);
+                            responseMap = walletController.handleTopUp(userId, requestBody);
+                        }
+                        break;
+                    case "payment":
+                        if (path.equals("/payment/online") && method.equals("POST")) {
+                            Type type = new TypeToken<Map<String, Object>>(){}.getType();
+                            Map<String, Object> requestBody = gson.fromJson(body, type);
+                            responseMap = walletController.handlePayment(userId, requestBody);
+                        }
+                        break;
                     case "deliveries":
                         if (path.equals("/deliveries/available") && method.equals("GET")) {
                             responseMap = courierController.handleGetAvailableDeliveries(userId);
@@ -318,6 +334,10 @@ public class RequestHandler implements Runnable {
                             responseMap = courierController.handleUpdateDeliveryStatus(userId, orderId, requestBody);
                         }
                         break;
+                    case "transactions":
+                        if (path.equals("/transactions") && method.equals("GET")) {
+                            responseMap = walletController.handleGetTransactionHistory(userId);
+                        }
                     case "ratings":
                         if (path.equals("/ratings") && method.equals("POST")) {
                             Rating rating = gson.fromJson(body, Rating.class);
