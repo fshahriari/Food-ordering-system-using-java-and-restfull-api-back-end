@@ -470,4 +470,62 @@ public class OrderDAO {
         }
         return orders;
     }
+
+    /**
+     * Retrieves all orders in the system, with optional filters for the admin.
+     * @param filters A map of query parameters.
+     * @return A list of all matching orders.
+     * @throws SQLException if a database error occurs.
+     */
+    public List<Order> getAllOrders(Map<String, String> filters) throws SQLException {
+        List<Order> orders = new ArrayList<>();
+        StringBuilder sql = new StringBuilder("SELECT DISTINCT o.* FROM " + ORDERS_TABLE + " o " +
+                "LEFT JOIN " + USERS_TABLE + " c ON o.customer_id = c.id " +
+                "LEFT JOIN " + USERS_TABLE + " cr ON o.courier_id = cr.id " +
+                "LEFT JOIN " + RESTAURANTS_TABLE + " r ON o.restaurant_id = r.id " +
+                "LEFT JOIN " + ORDER_ITEMS_TABLE + " oi ON o.id = oi.order_id " +
+                "LEFT JOIN " + FOOD_ITEMS_TABLE + " fi ON oi.food_item_id = fi.id " +
+                "WHERE 1=1");
+        List<Object> params = new ArrayList<>();
+
+        if (filters.containsKey("search")) {
+            sql.append(" AND (r.name LIKE ? OR c.full_name LIKE ? OR cr.full_name LIKE ? OR fi.name LIKE ?)");
+            String searchTerm = "%" + filters.get("search") + "%";
+            params.add(searchTerm);
+            params.add(searchTerm);
+            params.add(searchTerm);
+            params.add(searchTerm);
+        }
+        if (filters.containsKey("vendor")) {
+            sql.append(" AND r.name LIKE ?");
+            params.add("%" + filters.get("vendor") + "%");
+        }
+        if (filters.containsKey("customer")) {
+            sql.append(" AND c.full_name LIKE ?");
+            params.add("%" + filters.get("customer") + "%");
+        }
+        if (filters.containsKey("courier")) {
+            sql.append(" AND cr.full_name LIKE ?");
+            params.add("%" + filters.get("courier") + "%");
+        }
+        if (filters.containsKey("status")) {
+            sql.append(" AND o.status = ?");
+            params.add(filters.get("status").toUpperCase());
+        }
+
+        sql.append(" ORDER BY o.created_at DESC");
+
+        try (Connection conn = DatabaseManager.getConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql.toString())) {
+            for (int i = 0; i < params.size(); i++) {
+                stmt.setObject(i + 1, params.get(i));
+            }
+            try (ResultSet rs = stmt.executeQuery()) {
+                while (rs.next()) {
+                    orders.add(extractOrderFromResultSet(rs));
+                }
+            }
+        }
+        return orders;
+    }
 }

@@ -203,4 +203,20 @@ public class AdminController {
         response.put("users", users);
         return response;
     }
+
+    /**
+     * Handles fetching a list of all orders with optional filters.
+     * @param userId The ID of the authenticated admin.
+     * @param filters A map of query parameters.
+     * @return A map containing the list of all matching orders.
+     * @throws Exception for any validation, authorization, or database errors.
+     */
+    public Map<String, Object> handleGetAllOrders(Integer userId, Map<String, String> filters) throws Exception {
+        authorizeAdmin(userId);
+        List<Order> orders = orderDAO.getAllOrders(filters);
+        Map<String, Object> response = new HashMap<>();
+        response.put("status", 200);
+        response.put("orders", orders);
+        return response;
+    }
 }
