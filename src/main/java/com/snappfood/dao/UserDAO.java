@@ -474,4 +474,23 @@ public class UserDAO {
             }
         }
     }
+
+    public boolean isUserCustomer(String clientIp) {
+        try {
+            String sql = "SELECT COUNT(*) FROM users WHERE role = ? AND phone = ?";
+            try (Connection conn = DatabaseManager.getConnection();
+                 PreparedStatement stmt = conn.prepareStatement(sql)) {
+                stmt.setString(1, Role.CUSTOMER.getValue());
+                stmt.setString(2, clientIp);
+                try (ResultSet rs = stmt.executeQuery()) {
+                    if (rs.next()) {
+                        return rs.getInt(1) > 0;
+                    }
+                }
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        return false;
+    }
 }

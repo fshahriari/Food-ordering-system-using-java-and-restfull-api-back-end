@@ -868,19 +868,15 @@ paths:
               properties:
                 search:
                   type: string
-                  description: Search term for restaurant names.
                 categories:
                   type: array
                   items:
                     type: string
-                    enum: [ FAST_FOOD, VEGETARIAN, IRANIAN, SEA_FOOD ]
-                  description: Filter by one or more food categories.
                 min_rating:
                   type: number
-                  format: float
-                  minimum: 1.0
-                  maximum: 5.0
-                  description: Filter by minimum average rating.
+                max_price:
+                  type: integer
+                  description: Filter for restaurants with at least one item at or below this price.
       responses:
         '200':
           description: List of vendors
@@ -970,19 +966,15 @@ paths:
               properties:
                 search:
                   type: string
-                  description: Search term for food item names.
+                price: # This seems to be a typo in the original doc, let's rename it for clarity
+                  type: integer
                 categories:
                   type: array
                   items:
                     type: string
-                    enum: [ FAST_FOOD, VEGETARIAN, IRANIAN, SEA_FOOD ]
-                  description: Filter by one or more food categories.
-                min_rating:
-                  type: number
-                  format: float
-                  minimum: 1.0
-                  maximum: 5.0
-                  description: Filter by the minimum average rating of the restaurant that sells the item.
+                max_price:
+                  type: integer
+                  description: Filter for items with a price at or below this value.
       responses:
         '200':
           description: List of items

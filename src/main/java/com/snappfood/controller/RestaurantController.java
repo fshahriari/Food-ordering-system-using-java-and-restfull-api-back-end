@@ -562,6 +562,10 @@ public class RestaurantController {
             throw new InvalidInputException("Invalid restaurant ID.");
         }
 
+        if (!userDAO.isUserCustomer(clientIp)) {
+            throw new ForbiddenException("Only customers can view restaurant menus.");
+        }
+
         RequestTracker tracker = getMenuTrackers.computeIfAbsent(clientIp,
                 k -> new RequestTracker(MAX_GET_MENU_REQUESTS, GET_MENU_RATE_LIMIT_WINDOW_MS));
         if (!tracker.allowRequest()) {
