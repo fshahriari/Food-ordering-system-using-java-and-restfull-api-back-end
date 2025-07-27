@@ -857,7 +857,7 @@ paths:
     post:
       tags:
         - buyer
-      summary: List vendors with optional filters
+      summary: List vendors with optional filters and sorting
       security:
         - bearerAuth: [ ]
       requestBody:
@@ -868,15 +868,20 @@ paths:
               properties:
                 search:
                   type: string
+                  description: Search term for restaurant or food names.
                 categories:
                   type: array
                   items:
                     type: string
-                min_rating:
-                  type: number
-                max_price:
-                  type: integer
-                  description: Filter for restaurants with at least one item at or below this price.
+                    enum: [ FAST_FOOD, VEGETARIAN, IRANIAN, SEA_FOOD ]
+                  description: Filter by one or more food categories.
+                sort_by:
+                  type: string
+                  description: Sort the results.
+                  enum:
+                    - popularity_desc
+                    - price_asc
+                    - price_desc
       responses:
         '200':
           description: List of vendors
@@ -955,7 +960,7 @@ paths:
     post:
       tags:
         - buyer
-      summary: List items with optional filters
+      summary: List items with optional filters and sorting
       security:
         - bearerAuth: [ ]
       requestBody:
@@ -966,15 +971,20 @@ paths:
               properties:
                 search:
                   type: string
-                price: # This seems to be a typo in the original doc, let's rename it for clarity
-                  type: integer
+                  description: Search term for item name, description, or keywords.
                 categories:
                   type: array
                   items:
                     type: string
-                max_price:
-                  type: integer
-                  description: Filter for items with a price at or below this value.
+                    enum: [ FAST_FOOD, VEGETARIAN, IRANIAN, SEA_FOOD ]
+                  description: Filter by one or more food categories.
+                sort_by:
+                  type: string
+                  description: Sort the results.
+                  enum:
+                    - popularity_desc
+                    - price_asc
+                    - price_desc
       responses:
         '200':
           description: List of items

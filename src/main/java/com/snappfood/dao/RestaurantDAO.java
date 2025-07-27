@@ -672,8 +672,8 @@ public class RestaurantDAO {
     }
 
     /**
-     * Finds active restaurants based on a set of filters.
-     * @param filters A map containing filter criteria (search, categories, min_rating).
+     * Finds active restaurants based on a set of filters and sorting options.
+     * @param filters A map containing filter and sort criteria.
      * @return A list of matching Restaurant objects.
      * @throws SQLException if a database error occurs.
      */
@@ -681,19 +681,15 @@ public class RestaurantDAO {
         List<Restaurant> restaurants = new ArrayList<>();
         List<Object> params = new ArrayList<>();
 
-        StringBuilder sql = new StringBuilder("SELECT r.* FROM " + RESTAURANTS_TABLE + " r ");
+        StringBuilder sql = new StringBuilder("SELECT r.*, AVG(ra.rating) as avg_rating, COUNT(DISTINCT fr.customer_id) as favorite_count FROM " + RESTAURANTS_TABLE + " r ");
 
-        if (filters.containsKey("search") || filters.containsKey("categories")) {
-            sql.append(" LEFT JOIN " + FOOD_ITEMS_TABLE + " fi ON r.id = fi.restaurant_id ");
-        }
-        if (filters.containsKey("min_rating")) {
-            sql.append(" LEFT JOIN " + RATINGS_TABLE + " ra ON r.id = ra.restaurant_id ");
-        }
+        sql.append(" LEFT JOIN " + FOOD_ITEMS_TABLE + " fi ON r.id = fi.restaurant_id ");
+        sql.append(" LEFT JOIN " + RATINGS_TABLE + " ra ON r.id = ra.restaurant_id ");
+        sql.append(" LEFT JOIN " + FAVORITE_RESTAURANTS_TABLE + " fr ON r.id = fr.restaurant_id ");
 
         sql.append(" WHERE r.id NOT IN (SELECT id FROM " + PENDING_RESTAURANTS_TABLE + ") ");
 
         if (filters.containsKey("search")) {
-            //Added search by food item keywords
             sql.append(" AND (r.name LIKE ? OR fi.name LIKE ? OR fi.keywords LIKE ?)");
             params.add("%" + filters.get("search") + "%");
             params.add("%" + filters.get("search") + "%");
@@ -716,9 +712,19 @@ public class RestaurantDAO {
 
         sql.append(" GROUP BY r.id");
 
-        if (filters.containsKey("min_rating")) {
-            sql.append(" HAVING AVG(ra.rating) >= ?");
-            params.add(filters.get("min_rating"));
+        if (filters.containsKey("sort_by")) {
+            String sortBy = (String) filters.get("sort_by");
+            switch (sortBy) {
+                case "popularity_desc":
+                    sql.append(" ORDER BY avg_rating DESC, favorite_count DESC");
+                    break;
+                case "price_asc":
+                    sql.append(" ORDER BY MIN(fi.price) ASC");
+                    break;
+                case "price_desc":
+                    sql.append(" ORDER BY MAX(fi.price) DESC");
+                    break;
+            }
         }
 
         try (Connection conn = DatabaseManager.getConnection();
@@ -736,8 +742,8 @@ public class RestaurantDAO {
     }
 
     /**
-     * Finds active food items based on a set of filters.
-     * @param filters A map containing filter criteria (search, categories, min_rating).
+     * Finds active food items based on a set of filters and sorting options.
+     * @param filters A map containing filter and sort criteria.
      * @return A list of matching Food objects.
      * @throws SQLException if a database error occurs.
      */
@@ -745,17 +751,14 @@ public class RestaurantDAO {
         List<Food> foodItems = new ArrayList<>();
         List<Object> params = new ArrayList<>();
 
-        StringBuilder sql = new StringBuilder("SELECT fi.* FROM " + FOOD_ITEMS_TABLE + " fi ");
+        StringBuilder sql = new StringBuilder("SELECT fi.*, AVG(ra.rating) as avg_rating, COUNT(DISTINCT fr.customer_id) as favorite_count FROM " + FOOD_ITEMS_TABLE + " fi ");
         sql.append(" JOIN " + RESTAURANTS_TABLE + " r ON fi.restaurant_id = r.id ");
-
-        if (filters.containsKey("min_rating")) {
-            sql.append(" LEFT JOIN " + RATINGS_TABLE + " ra ON r.id = ra.restaurant_id ");
-        }
+        sql.append(" LEFT JOIN " + RATINGS_TABLE + " ra ON r.id = ra.restaurant_id ");
+        sql.append(" LEFT JOIN " + FAVORITE_RESTAURANTS_TABLE + " fr ON r.id = fr.restaurant_id ");
 
         sql.append(" WHERE r.id NOT IN (SELECT id FROM " + PENDING_RESTAURANTS_TABLE + ") ");
 
         if (filters.containsKey("search")) {
-            //Added search by keywords
             sql.append(" AND (fi.name LIKE ? OR fi.description LIKE ? OR fi.keywords LIKE ?)");
             params.add("%" + filters.get("search") + "%");
             params.add("%" + filters.get("search") + "%");
@@ -779,9 +782,19 @@ public class RestaurantDAO {
 
         sql.append(" GROUP BY fi.id");
 
-        if (filters.containsKey("min_rating")) {
-            sql.append(" HAVING AVG(ra.rating) >= ?");
-            params.add(filters.get("min_rating"));
+        if (filters.containsKey("sort_by")) {
+            String sortBy = (String) filters.get("sort_by");
+            switch (sortBy) {
+                case "popularity_desc":
+                    sql.append(" ORDER BY avg_rating DESC, favorite_count DESC");
+                    break;
+                case "price_asc":
+                    sql.append(" ORDER BY fi.price ASC");
+                    break;
+                case "price_desc":
+                    sql.append(" ORDER BY fi.price DESC");
+                    break;
+            }
         }
 
         try (Connection conn = DatabaseManager.getConnection();

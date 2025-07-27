@@ -222,9 +222,9 @@ public class CustomerController {
     }
 
     /**
-     * Handles listing vendors with optional filters.
+     * Handles listing vendors with optional filters and sorting.
      * @param userId The ID of the authenticated user.
-     * @param filters A map containing the filter criteria (search, categories, min_rating).
+     * @param filters A map containing the filter and sort criteria.
      * @return A map containing the list of matching restaurants.
      * @throws Exception for any validation, authorization, or database errors.
      */
@@ -236,13 +236,6 @@ public class CustomerController {
         User user = userDAO.findUserById(userId);
         if (user == null || user.getRole() != Role.CUSTOMER) {
             throw new ForbiddenException("Only customers can view vendors.");
-        }
-
-        if (filters.containsKey("min_rating")) {
-            double minRating = (double) filters.get("min_rating");
-            if (minRating < 1.0 || minRating > 5.0) {
-                throw new InvalidInputException("min_rating must be between 1 and 5.");
-            }
         }
 
         if (filters.containsKey("categories")) {
@@ -264,22 +257,15 @@ public class CustomerController {
     }
 
     /**
-     * Handles listing food items with optional filters.
+     * Handles listing food items with optional filters and sorting.
      * @param userId The ID of the authenticated user.
-     * @param filters A map containing the filter criteria (search, categories, min_rating).
+     * @param filters A map containing the filter and sort criteria.
      * @return A map containing the list of matching food items.
      * @throws Exception for any validation, authorization, or database errors.
      */
     public Map<String, Object> handleListItems(Integer userId, Map<String, Object> filters) throws Exception {
         if (userId == null) {
             throw new UnauthorizedException("You must be logged in to view items.");
-        }
-
-        if (filters.containsKey("min_rating")) {
-            double minRating = (double) filters.get("min_rating");
-            if (minRating < 1.0 || minRating > 5.0) {
-                throw new InvalidInputException("min_rating must be between 1 and 5.");
-            }
         }
 
         if (filters.containsKey("categories")) {
