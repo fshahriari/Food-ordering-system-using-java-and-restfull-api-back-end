@@ -92,7 +92,7 @@ public class UserController {
         }
         if (updatedData.containsKey("profileImageBase64")) {
             String imageBase64 = (String) updatedData.get("profileImageBase64");
-            existingUser.setProfileImage(java.util.Base64.getDecoder().decode(imageBase64));
+            existingUser.setProfileImageBase64(imageBase64);
             if (!GenerallController.isValidImage(imageBase64)) {
                 throw new InvalidInputException("Invalid image");
             }
@@ -279,7 +279,7 @@ public class UserController {
                 || !Role.isValid(user.getRole().getValue())) {
             throw new InvalidInputException("Invalid role");
         }
-        if (user.getProfileImage() != null && !GenerallController.isValidImage(user.getProfileImage())) {
+        if (user.getProfileImageBase64() != null && !GenerallController.isValidImage(user.getProfileImageBase64())) {
             throw new InvalidInputException("Invalid profile image");
         }
         if(user.getRole() == Role.ADMIN) {

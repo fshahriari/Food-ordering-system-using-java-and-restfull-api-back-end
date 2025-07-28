@@ -5,6 +5,8 @@ import com.snappfood.model.*;
 
 import java.sql.*;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Base64;
 import java.util.List;
 
 public class UserDAO {
@@ -68,7 +70,7 @@ public class UserDAO {
             stmt.setString(4, user.getPassword());
             stmt.setString(5, user.getRole().getValue());
             stmt.setString(6, user.getAddress());
-            stmt.setBytes(7, user.getProfileImage());
+            stmt.setBytes(7, user.getProfileImageBase64().getBytes());
 
             BankInfo bankInfo = user.getBankInfo();
             if (bankInfo != null) {
@@ -111,7 +113,7 @@ public class UserDAO {
             stmt.setString(4, user.getPassword());
             stmt.setString(5, user.getRole().getValue());
             stmt.setString(6, user.getAddress());
-            stmt.setBytes(7, user.getProfileImage());
+            stmt.setBytes(7, user.getProfileImageBase64().getBytes());
 
             BankInfo bankInfo = user.getBankInfo();
             if (bankInfo != null) {
@@ -153,7 +155,7 @@ public class UserDAO {
             stmt.setString(4, user.getPassword());
             stmt.setString(5, user.getRole().getValue());
             stmt.setString(6, user.getAddress());
-            stmt.setBytes(7, user.getProfileImage());
+            stmt.setBytes(7, Base64.getDecoder().decode(user.getProfileImageBase64()));
 
             BankInfo bankInfo = user.getBankInfo();
             if (bankInfo != null) {
@@ -394,7 +396,7 @@ public class UserDAO {
         user.setEmail(rs.getString("email"));
         user.setPassword(rs.getString("password"));
         user.setAddress(rs.getString("address"));
-        user.setProfileImage(rs.getBytes("profile_image"));
+        user.setProfileImageBase64(Base64.getEncoder().encodeToString(rs.getBytes("profile_image")));
 
         String bankName = rs.getString("bank_name");
         String accountNumber = rs.getString("account_number");
@@ -420,7 +422,7 @@ public class UserDAO {
             stmt.setString(2, user.getPhone());
             stmt.setString(3, user.getEmail());
             stmt.setString(4, user.getAddress());
-            stmt.setBytes(5, user.getProfileImage());
+            stmt.setBytes(5, Base64.getDecoder().decode(user.getProfileImageBase64()));
 
             BankInfo bankInfo = user.getBankInfo();
             if (bankInfo != null) {

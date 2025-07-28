@@ -84,6 +84,10 @@ public class RequestHandler implements Runnable {
     public void run() {
         String httpResponse;
         try {
+            if (request == null || request.trim().isEmpty()) {
+                return; // Ignore empty requests
+            }
+
             String[] requestLines = request.split("\r\n");
             if (requestLines.length == 0) {
                 throw new InvalidInputException("Invalid request");
@@ -101,7 +105,6 @@ public class RequestHandler implements Runnable {
             String query = pathParts.length > 1 ? pathParts[1] : "";
             Map<String, String> queryParams = parseQueryParams(query);
 
-            System.out.println("Endpoint: " + path);
 
             Map<String, String> headers = new HashMap<>();
             String body = "";
@@ -120,8 +123,6 @@ public class RequestHandler implements Runnable {
                     body += requestLines[i];
                 }
             }
-
-            System.out.println("Request Body: " + body);
 
             Map<String, Object> responseMap = Collections.emptyMap();
             int statusCode = 200;
@@ -146,6 +147,11 @@ public class RequestHandler implements Runnable {
                 }
 
                 String[] pathSegments = path.split("/");
+                // FIX: Prevent ArrayIndexOutOfBoundsException on root path or malformed paths
+                if (pathSegments.length < 2) {
+                    throw new ResourceNotFoundException("Not Found");
+                }
+
 
                 switch (pathSegments[1]) {
                     case "auth":
@@ -318,6 +324,23 @@ public class RequestHandler implements Runnable {
                             responseMap = customerController.handleRemoveFavoriteRestaurant(userId, restaurantId);
                         }
                         break;
+                    case "ratings":
+                        if (path.equals("/ratings") && method.equals("POST")) {
+                            Rating rating = gson.fromJson(body, Rating.class);
+                            responseMap = customerController.handleSubmitRating(userId, rating);
+                        }
+                        break;
+                    case "deliveries":
+                        if (path.equals("/deliveries/available") && method.equals("GET")) {
+                            responseMap = courierController.handleGetAvailableDeliveries(userId);
+                        } else if (path.equals("/deliveries/history") && method.equals("GET")) {
+                            responseMap = courierController.handleGetDeliveryHistory(userId, queryParams);
+                        } else if (pathSegments.length == 3 && method.equals("PATCH")) {
+                            int orderId = Integer.parseInt(pathSegments[2]);
+                            Map<String, String> requestBody = gson.fromJson(body, Map.class);
+                            responseMap = courierController.handleUpdateDeliveryStatus(userId, orderId, requestBody);
+                        }
+                        break;
                     case "wallet":
                         if (path.equals("/wallet/top-up") && method.equals("POST")) {
                             Type type = new TypeToken<Map<String, Double>>(){}.getType();
@@ -332,25 +355,9 @@ public class RequestHandler implements Runnable {
                             responseMap = walletController.handlePayment(userId, requestBody);
                         }
                         break;
-                    case "deliveries":
-                        if (path.equals("/deliveries/available") && method.equals("GET")) {
-                            responseMap = courierController.handleGetAvailableDeliveries(userId);
-                        } else if (path.equals("/deliveries/history") && method.equals("GET")) {
-                            responseMap = courierController.handleGetDeliveryHistory(userId, queryParams);
-                        } else if (pathSegments.length == 3 && method.equals("PATCH")) {
-                            int orderId = Integer.parseInt(pathSegments[2]);
-                            Map<String, String> requestBody = gson.fromJson(body, Map.class);
-                            responseMap = courierController.handleUpdateDeliveryStatus(userId, orderId, requestBody);
-                        }
-                        break;
                     case "transactions":
                         if (path.equals("/transactions") && method.equals("GET")) {
                             responseMap = walletController.handleGetTransactionHistory(userId);
-                        }
-                    case "ratings":
-                        if (path.equals("/ratings") && method.equals("POST")) {
-                            Rating rating = gson.fromJson(body, Rating.class);
-                            responseMap = customerController.handleSubmitRating(userId, rating);
                         }
                         break;
                     default:

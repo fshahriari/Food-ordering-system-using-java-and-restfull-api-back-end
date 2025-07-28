@@ -1,17 +1,8 @@
 package com.snappfood.model;
 
 import com.google.gson.annotations.SerializedName;
-import com.snappfood.controller.UserController;
-import com.snappfood.exception.*;
 
-import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Paths;
-import java.sql.SQLException;
 import java.sql.Timestamp;
-import java.util.Arrays;
-import java.util.List;
-import java.util.Map;
 
 public class User {
     @SerializedName("full_name")
@@ -24,7 +15,7 @@ public class User {
     private int id;
 
     @SerializedName("profileImageBase64")
-    private byte[] profileImage;
+    private String profileImageBase64;
 
     private String profileImagePath;
 
@@ -40,15 +31,14 @@ public class User {
     public User() {
     }
 
-    public User(String name, String phoneNumber, String email,
-                String password, Role role, String address, byte[] profileImage, BankInfo bankInfo) {
+    public User(String name, String phoneNumber, String email, String password, Role role, String address, String profileImageBase64, BankInfo bankInfo) {
         this.fullName = name;
         this.phone = phoneNumber;
         this.email = email;
         this.password = password;
         this.role = role;
         this.address = address;
-        this.profileImage = profileImage;
+        this.profileImageBase64 = profileImageBase64;
         this.bankInfo = bankInfo;
     }
 
@@ -73,8 +63,8 @@ public class User {
         return phone;
     }
 
-    public void setPhone(String phoneNumber) {
-        this.phone = phoneNumber;
+    public void setPhone(String phone) {
+        this.phone = phone;
     }
 
     public String getEmail() {
@@ -94,10 +84,6 @@ public class User {
     }
 
     public Role getRole() {
-        if (role != role.SELLER && role != role.CUSTOMER &&
-            role != role.ADMIN && role != role.COURIER) {
-            return Role.UNDEFIENED;
-        }
         return role;
     }
 
@@ -113,12 +99,12 @@ public class User {
         this.address = address;
     }
 
-    public byte[] getProfileImage() {
-        return profileImage;
+    public String getProfileImageBase64() {
+        return profileImageBase64;
     }
 
-    public void setProfileImage(byte[] profileImage) {
-        this.profileImage = profileImage;
+    public void setProfileImageBase64(String profileImageBase64) {
+        this.profileImageBase64 = profileImageBase64;
     }
 
     public BankInfo getBankInfo() {
@@ -129,14 +115,6 @@ public class User {
         this.bankInfo = bankInfo;
     }
 
-    public String getProfileImagePath() {
-        return profileImagePath;
-    }
-
-    public void setProfileImagePath(String profileImagePath) {
-        this.profileImagePath = profileImagePath;
-    }
-
     public int getFailedLoginAttempts() {
         return failedLoginAttempts;
     }
@@ -145,97 +123,11 @@ public class User {
         this.failedLoginAttempts = failedLoginAttempts;
     }
 
-    public Timestamp getLockTime() {
+    public java.sql.Timestamp getLockTime() {
         return lockTime;
     }
 
-    public void setLockTime(Timestamp lockTime) {
+    public void setLockTime(java.sql.Timestamp lockTime) {
         this.lockTime = lockTime;
-    }
-
-    private static byte[] readImageToBytes(String imagePath) throws IOException {
-        if (imagePath == null || imagePath.trim().isEmpty()) {
-            return null;
-        }
-        return Files.readAllBytes(Paths.get(imagePath));
-    }
-
-    static public void signup(String name, String phone, String email, String password, String role, String address,
-                              String imagePath, String bankName, String accountNumber) {
-
-        byte[] profileImage = null;
-        try {
-            if (imagePath != null && !imagePath.trim().isEmpty()) {
-                profileImage = Files.readAllBytes(Paths.get(imagePath));
-                String mimeType = Files.probeContentType(Paths.get(imagePath));
-                List<String> allowedMimeTypes = Arrays.asList("image/jpeg", "image/png", "image/gif");
-                if (mimeType == null || !allowedMimeTypes.contains(mimeType)) {
-                    throw new UnsupportedMediaTypeException("Unsupported media type");
-                }
-            }
-        } catch (UnsupportedMediaTypeException e) {
-            System.err.println("error: " + e.getMessage());
-            return;
-        } catch (IOException e) {
-            System.err.println("Error reading image file: " + e.getMessage());
-            return;
-        }
-
-        BankInfo bankInfo = new BankInfo(bankName, accountNumber);
-        Role enumRole = null;
-        for (Role r : Role.values()) {
-            if (r.getValue().equalsIgnoreCase(role)) {
-                enumRole = r;
-                break;
-            }
-        }
-
-        User newUser = new User(
-                name,
-                phone,
-                email,
-                password,
-                enumRole,
-                address,
-                profileImage,
-                bankInfo
-        );
-
-        UserController controller = new UserController();
-        try {
-            Map<String, Object> result = controller.handleSignup(newUser);
-            System.out.println("Status Code: " + result.get("status"));
-            System.out.println("Message: " + result.get("message"));
-            System.out.println("User ID: " + result.get("user_id"));
-            System.out.println("Token: " + result.get("token"));
-        } catch (InvalidInputException | DuplicatePhoneNumberException | ForbiddenException | ResourceNotFoundException | TooManyRequestsException | InternalServerErrorException | UnauthorizedException e) {
-            System.err.println("Signup Failed. Error: " + e.getMessage());
-        } catch (SQLException e) {
-            System.err.println("A critical database error occurred: " + e.getMessage());
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        }
-    }
-
-    static public void logIn(String id, String password) {
-        UserController controller = new UserController();
-        try {
-            Map<String, Object> result = controller.handleLogin(id, password);
-            System.out.println("Status Code: " + result.get("status"));
-            System.out.println("Message: " + result.get("message"));
-            if (result.containsKey("token")) {
-                System.out.println("Token: " + result.get("token"));
-                User user = (User) result.get("user");
-                System.out.println("Welcome, " + user.getName() + "!");
-            }
-        } catch (InvalidInputException | UnauthorizedException | ForbiddenException | InternalServerErrorException |
-                 ResourceNotFoundException | TooManyRequestsException e) {
-            System.err.println("Login Failed. Error: " + e.getMessage());
-        } catch (SQLException e) {
-            System.err.println("A critical database error occurred: " + e.getMessage());
-        }
-        catch (Exception e) {
-            System.err.println("An unexpected error occurred: " + e.getMessage());
-        }
     }
 }
