@@ -465,7 +465,7 @@ public class RestaurantController {
             throw new ResourceNotFoundException("Restaurant with ID " + restaurantId + " not found.");
         }
 
-        if (!restaurant.getSellerPhoneNumbers().contains(seller.getPhone())) {
+        if (!restaurant.getSellerPhoneNumber().equals(seller.getPhone())) {
             throw new ForbiddenException("You do not have permission to modify this restaurant.");
         }
 
@@ -513,7 +513,7 @@ public class RestaurantController {
         }
 
         //403
-        if (!existingRestaurant.getSellerPhoneNumbers().contains(seller.getPhone())) {
+        if (!existingRestaurant.getSellerPhoneNumber().equals(seller.getPhone())) {
             throw new ForbiddenException("You do not have permission to update this restaurant.");
         }
 

@@ -101,6 +101,7 @@ public class RequestHandler implements Runnable {
             String query = pathParts.length > 1 ? pathParts[1] : "";
             Map<String, String> queryParams = parseQueryParams(query);
 
+            System.out.println("Endpoint: " + path);
 
             Map<String, String> headers = new HashMap<>();
             String body = "";
@@ -119,6 +120,8 @@ public class RequestHandler implements Runnable {
                     body += requestLines[i];
                 }
             }
+
+            System.out.println("Request Body: " + body);
 
             Map<String, Object> responseMap = Collections.emptyMap();
             int statusCode = 200;

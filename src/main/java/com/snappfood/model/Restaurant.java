@@ -40,8 +40,7 @@ public class Restaurant {
 
     private List<Menu> menus;
 
-
-    private List<String> sellerPhoneNumbers;
+    private String sellerPhoneNumber;
 
     /**
      * Default constructor.
@@ -61,11 +60,11 @@ public class Restaurant {
      * @param phoneNumber The contact phone number.
      * @param workingHours The operating hours of the restaurant.
      * @param category The category of food the restaurant serves.
-     * @param sellerPhoneNumbers A list of phone numbers for the sellers who own the restaurant.
+     * @param sellerPhoneNumber A phone number for the seller who own the restaurant.
      * @param additionalFee the additional fee for each order of the restaurant
      * @param taxFee the constant fee for each order of the restaurant
      */
-    public Restaurant(int id, String name, String logoBase64, String address, String phoneNumber, String workingHours, String category, int taxFee, int additionalFee, List<String> sellerPhoneNumbers) {
+    public Restaurant(int id, String name, String logoBase64, String address, String phoneNumber, String workingHours, String category, int taxFee, int additionalFee, String sellerPhoneNumber) {
         this.id = id;
         this.name = name;
         this.logoBase64 = logoBase64;
@@ -75,7 +74,7 @@ public class Restaurant {
         this.category = category;
         this.taxFee = taxFee;
         this.additionalFee = additionalFee;
-        this.sellerPhoneNumbers = sellerPhoneNumbers;
+        this.sellerPhoneNumber = sellerPhoneNumber;
     }
 
 
@@ -135,12 +134,12 @@ public class Restaurant {
         this.category = category;
     }
 
-    public List<String> getSellerPhoneNumbers() {
-        return sellerPhoneNumbers;
+    public String getSellerPhoneNumber() {
+        return sellerPhoneNumber;
     }
 
-    public void setSellerPhoneNumbers(List<String> sellerPhoneNumbers) {
-        this.sellerPhoneNumbers = sellerPhoneNumbers;
+    public void setSellerPhoneNumber(String sellerPhoneNumber) {
+        this.sellerPhoneNumber = sellerPhoneNumber;
     }
 
     public int getTaxFee() {

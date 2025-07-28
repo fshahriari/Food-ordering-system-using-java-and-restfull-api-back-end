@@ -56,7 +56,6 @@ public class Server {
                         // 6. Read data from a client
                         SocketChannel clientChannel = (SocketChannel) key.channel();
 
-                        // --- FIX IS HERE ---
                         // Get the address before reading, in case the read causes a disconnect.
                         SocketAddress remoteAddress = clientChannel.getRemoteAddress();
 

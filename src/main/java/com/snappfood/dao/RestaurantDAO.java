@@ -16,56 +16,28 @@ public class RestaurantDAO {
     private static final String FOOD_ITEMS_TABLE = "food_items";
     private static final String MENUS_TABLE = "menus";
     private static final String MENU_ITEMS_TABLE = "menu_items";
-    private static final String RESTAURANT_SELLERS_TABLE = "restaurant_sellers";
     private static final String FAVORITE_RESTAURANTS_TABLE = "favorite_restaurants";
     private static final String RATINGS_TABLE = "ratings";
 
     public int createPendingRestaurant(Restaurant restaurant, String sellerPhoneNumber) throws SQLException {
-        Connection conn = null;
-        String insertRestaurantSql = "INSERT INTO " + PENDING_RESTAURANTS_TABLE + " (name, logo_base64, address, phone_number, working_hours, category) VALUES (?, ?, ?, ?, ?, ?)";
-        String insertSellerSql = "INSERT INTO " + RESTAURANT_SELLERS_TABLE + " (restaurant_id, seller_phone_number) VALUES (?, ?)";
+        String sql = "INSERT INTO " + PENDING_RESTAURANTS_TABLE + " (name, logo_base64, address, phone_number, working_hours, category, seller_phone_number) VALUES (?, ?, ?, ?, ?, ?, ?)";
+        try (Connection conn = DatabaseManager.getConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
+            stmt.setString(1, restaurant.getName());
+            stmt.setString(2, restaurant.getLogoBase64());
+            stmt.setString(3, restaurant.getAddress());
+            stmt.setString(4, restaurant.getPhoneNumber());
+            stmt.setString(5, restaurant.getWorkingHours());
+            stmt.setString(6, restaurant.getCategory());
+            stmt.setString(7, sellerPhoneNumber);
+            stmt.executeUpdate();
 
-        try {
-            conn = DatabaseManager.getConnection();
-            conn.setAutoCommit(false);
-
-            int restaurantId;
-            try (PreparedStatement stmt = conn.prepareStatement(insertRestaurantSql, Statement.RETURN_GENERATED_KEYS)) {
-                stmt.setString(1, restaurant.getName());
-                stmt.setString(2, restaurant.getLogoBase64());
-                stmt.setString(3, restaurant.getAddress());
-                stmt.setString(4, restaurant.getPhoneNumber());
-                stmt.setString(5, restaurant.getWorkingHours());
-                stmt.setString(6, restaurant.getCategory());
-                stmt.executeUpdate();
-
-                try (ResultSet generatedKeys = stmt.getGeneratedKeys()) {
-                    if (generatedKeys.next()) {
-                        restaurantId = generatedKeys.getInt(1);
-                    } else {
-                        throw new SQLException("Creating pending restaurant failed, no ID obtained.");
-                    }
+            try (ResultSet generatedKeys = stmt.getGeneratedKeys()) {
+                if (generatedKeys.next()) {
+                    return generatedKeys.getInt(1);
+                } else {
+                    throw new SQLException("Creating pending restaurant failed, no ID obtained.");
                 }
-            }
-
-            try (PreparedStatement stmt = conn.prepareStatement(insertSellerSql)) {
-                stmt.setInt(1, restaurantId);
-                stmt.setString(2, sellerPhoneNumber);
-                stmt.executeUpdate();
-            }
-
-            conn.commit();
-            return restaurantId;
-
-        } catch (SQLException e) {
-            if (conn != null) {
-                conn.rollback();
-            }
-            throw e;
-        } finally {
-            if (conn != null) {
-                conn.setAutoCommit(true);
-                conn.close();
             }
         }
     }
@@ -79,7 +51,6 @@ public class RestaurantDAO {
             try (ResultSet rs = stmt.executeQuery()) {
                 if (rs.next()) {
                     restaurant = extractRestaurantFromResultSet(rs);
-                    restaurant.setSellerPhoneNumbers(getSellersForRestaurant(restaurantId));
                 }
             }
         }
@@ -88,9 +59,7 @@ public class RestaurantDAO {
 
     public List<Restaurant> getRestaurantsBySellerPhoneNumber(String sellerPhoneNumber) throws SQLException {
         List<Restaurant> restaurants = new ArrayList<>();
-        String sql = "SELECT r.* FROM " + RESTAURANTS_TABLE + " r " +
-                "JOIN " + RESTAURANT_SELLERS_TABLE + " rs ON r.id = rs.restaurant_id " +
-                "WHERE rs.seller_phone_number = ?";
+        String sql = "SELECT * FROM " + RESTAURANTS_TABLE + " WHERE seller_phone_number = ?";
         try (Connection conn = DatabaseManager.getConnection();
              PreparedStatement stmt = conn.prepareStatement(sql)) {
             stmt.setString(1, sellerPhoneNumber);
@@ -296,6 +265,10 @@ public class RestaurantDAO {
         restaurant.setPhoneNumber(rs.getString("phone_number"));
         restaurant.setWorkingHours(rs.getString("working_hours"));
         restaurant.setCategory(rs.getString("category"));
+        // UPDATED: Set the seller phone number directly
+        if (rs.getMetaData().getColumnCount() > 9) { // Avoid error if column doesn't exist in all queries
+            restaurant.setSellerPhoneNumber(rs.getString("seller_phone_number"));
+        }
         return restaurant;
     }
 
@@ -321,9 +294,8 @@ public class RestaurantDAO {
     public void updatePendingRestaurantsBatch(List<RestaurantStatusUpdate> restaurantUpdates) throws SQLException {
         Connection conn = null;
         String selectPendingSql = "SELECT * FROM " + PENDING_RESTAURANTS_TABLE + " WHERE id = ?";
-        String insertRestaurantSql = "INSERT INTO " + RESTAURANTS_TABLE + " (name, logo_base64, address, phone_number, working_hours, category, tax_fee, additional_fee) VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
+        String insertRestaurantSql = "INSERT INTO " + RESTAURANTS_TABLE + " (name, logo_base64, address, phone_number, working_hours, category, tax_fee, additional_fee, seller_phone_number) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)";
         String deletePendingSql = "DELETE FROM " + PENDING_RESTAURANTS_TABLE + " WHERE id = ?";
-        String deleteSellerSql = "DELETE FROM " + RESTAURANT_SELLERS_TABLE + " WHERE restaurant_id = ?";
 
         try {
             conn = DatabaseManager.getConnection();
@@ -331,12 +303,12 @@ public class RestaurantDAO {
 
             PreparedStatement selectStmt = conn.prepareStatement(selectPendingSql);
             PreparedStatement insertStmt = conn.prepareStatement(insertRestaurantSql);
-            PreparedStatement deletePendingStmt = conn.prepareStatement(deletePendingSql);
-            PreparedStatement deleteSellerStmt = conn.prepareStatement(deleteSellerSql);
+            PreparedStatement deleteStmt = conn.prepareStatement(deletePendingSql);
 
             for (RestaurantStatusUpdate update : restaurantUpdates) {
                 selectStmt.setInt(1, update.getRestaurantId());
                 Restaurant pendingRestaurant = null;
+
                 try (ResultSet rs = selectStmt.executeQuery()) {
                     if (rs.next()) {
                         pendingRestaurant = extractRestaurantFromResultSet(rs);
@@ -356,20 +328,19 @@ public class RestaurantDAO {
                     insertStmt.setString(6, pendingRestaurant.getCategory());
                     insertStmt.setInt(7, pendingRestaurant.getTaxFee());
                     insertStmt.setInt(8, pendingRestaurant.getAdditionalFee());
+                    insertStmt.setString(9, pendingRestaurant.getSellerPhoneNumber());
                     insertStmt.addBatch();
 
-                    deletePendingStmt.setInt(1, update.getRestaurantId());
-                    deletePendingStmt.addBatch();
+                    deleteStmt.setInt(1, update.getRestaurantId());
+                    deleteStmt.addBatch();
                 } else if ("rejected".equalsIgnoreCase(update.getStatus())) {
-                    deletePendingStmt.setInt(1, update.getRestaurantId());
-                    deletePendingStmt.addBatch();
-                    deleteSellerStmt.setInt(1, update.getRestaurantId());
-                    deleteSellerStmt.addBatch();
+                    deleteStmt.setInt(1, update.getRestaurantId());
+                    deleteStmt.addBatch();
                 }
             }
 
             insertStmt.executeBatch();
-            deletePendingStmt.executeBatch();
+            deleteStmt.executeBatch();
             conn.commit();
 
         } catch (SQLException e) {
@@ -396,21 +367,6 @@ public class RestaurantDAO {
         food.setSupply(rs.getInt("supply"));
         food.setRestaurantId(rs.getInt("restaurant_id"));
         return food;
-    }
-
-    public List<String> getSellersForRestaurant(int restaurantId) throws SQLException {
-        List<String> sellerPhoneNumbers = new ArrayList<>();
-        String sql = "SELECT seller_phone_number FROM " + RESTAURANT_SELLERS_TABLE + " WHERE restaurant_id = ?";
-        try (Connection conn = DatabaseManager.getConnection();
-             PreparedStatement stmt = conn.prepareStatement(sql)) {
-            stmt.setInt(1, restaurantId);
-            try (ResultSet rs = stmt.executeQuery()) {
-                while (rs.next()) {
-                    sellerPhoneNumbers.add(rs.getString("seller_phone_number"));
-                }
-            }
-        }
-        return sellerPhoneNumbers;
     }
 
     public Restaurant getRestaurantByPhoneNumber(String phoneNumber) throws SQLException {
@@ -457,9 +413,7 @@ public class RestaurantDAO {
 
     public List<Restaurant> getPendingRestaurantsBySellerPhoneNumber(String sellerPhoneNumber) throws SQLException {
         List<Restaurant> restaurants = new ArrayList<>();
-        String sql = "SELECT r.* FROM " + PENDING_RESTAURANTS_TABLE + " r " +
-                "JOIN " + RESTAURANT_SELLERS_TABLE + " rs ON r.id = rs.restaurant_id " +
-                "WHERE rs.seller_phone_number = ?";
+        String sql = "SELECT * FROM " + PENDING_RESTAURANTS_TABLE + " WHERE seller_phone_number = ?";
         try (Connection conn = DatabaseManager.getConnection();
              PreparedStatement stmt = conn.prepareStatement(sql)) {
             stmt.setString(1, sellerPhoneNumber);
@@ -542,8 +496,8 @@ public class RestaurantDAO {
 
     public boolean isFoodItemInActiveOrder(int foodId) throws SQLException {
         String sql = "SELECT COUNT(*) FROM orders o " +
-                     "JOIN order_items oi ON o.id = oi.order_id " +
-                     "WHERE oi.food_item_id = ? AND o.status NOT IN ('completed', 'cancelled')";
+                "JOIN order_items oi ON o.id = oi.order_id " +
+                "WHERE oi.food_item_id = ? AND o.status NOT IN ('completed', 'cancelled')";
         try (Connection conn = DatabaseManager.getConnection();
              PreparedStatement stmt = conn.prepareStatement(sql)) {
             stmt.setInt(1, foodId);
@@ -558,11 +512,11 @@ public class RestaurantDAO {
 
     public boolean isMenuItemInActiveOrder(int restaurantId) throws SQLException {
         String sql = "SELECT COUNT(*) FROM orders o " +
-                     "JOIN order_items oi ON o.id = oi.order_id " +
-                     "JOIN food_items fi ON oi.food_item_id = fi.id " +
-                     "JOIN menu_items mi ON fi.id = mi.food_item_id " +
-                     "JOIN menus m ON mi.menu_id = m.id " +
-                     "WHERE m.restaurant_id = ? AND o.status NOT IN ('completed', 'cancelled')";
+                "JOIN order_items oi ON o.id = oi.order_id " +
+                "JOIN food_items fi ON oi.food_item_id = fi.id " +
+                "JOIN menu_items mi ON fi.id = mi.food_item_id " +
+                "JOIN menus m ON mi.menu_id = m.id " +
+                "WHERE m.restaurant_id = ? AND o.status NOT IN ('completed', 'cancelled')";
         try (Connection conn = DatabaseManager.getConnection();
              PreparedStatement stmt = conn.prepareStatement(sql)) {
             stmt.setInt(1, restaurantId);
@@ -612,8 +566,8 @@ public class RestaurantDAO {
     public List<Food> getFoodItemsByMenuId(int id) {
         List<Food> foodItems = new ArrayList<>();
         String sql = "SELECT f.* FROM " + FOOD_ITEMS_TABLE + " f " +
-                     "JOIN " + MENU_ITEMS_TABLE + " mi ON f.id = mi.food_item_id " +
-                     "WHERE mi.menu_id = ?";
+                "JOIN " + MENU_ITEMS_TABLE + " mi ON f.id = mi.food_item_id " +
+                "WHERE mi.menu_id = ?";
         try (Connection conn = DatabaseManager.getConnection();
              PreparedStatement stmt = conn.prepareStatement(sql)) {
             stmt.setInt(1, id);
@@ -630,9 +584,9 @@ public class RestaurantDAO {
 
     public boolean isAnyFoodItemInActiveOrder(int restaurantId) {
         String sql = "SELECT COUNT(*) FROM orders o " +
-                     "JOIN order_items oi ON o.id = oi.order_id " +
-                     "JOIN food_items fi ON oi.food_item_id = fi.id " +
-                     "WHERE fi.restaurant_id = ? AND o.status NOT IN ('completed', 'cancelled')";
+                "JOIN order_items oi ON o.id = oi.order_id " +
+                "JOIN food_items fi ON oi.food_item_id = fi.id " +
+                "WHERE fi.restaurant_id = ? AND o.status NOT IN ('completed', 'cancelled')";
         try (Connection conn = DatabaseManager.getConnection();
              PreparedStatement stmt = conn.prepareStatement(sql)) {
             stmt.setInt(1, restaurantId);
@@ -741,6 +695,10 @@ public class RestaurantDAO {
                 sql.append(")");
             }
         }
+        if (filters.containsKey("max_price")) {
+            sql.append(" AND fi.price <= ?");
+            params.add(filters.get("max_price"));
+        }
 
         sql.append(" GROUP BY r.id");
 
@@ -810,6 +768,11 @@ public class RestaurantDAO {
                 }
                 sql.append(")");
             }
+        }
+
+        if (filters.containsKey("max_price")) {
+            sql.append(" AND fi.price <= ?");
+            params.add(filters.get("max_price"));
         }
 
         sql.append(" GROUP BY fi.id");

@@ -148,7 +148,7 @@ public class OrderController {
         boolean isSeller = false;
         if (user.getRole() == Role.SELLER) {
             Restaurant restaurant = restaurantDAO.getRestaurantById(order.getRestaurantId());
-            if (restaurant != null && restaurant.getSellerPhoneNumbers().contains(user.getPhone())) {
+            if (restaurant != null && restaurant.getSellerPhoneNumber().equals(user.getPhone())) {
                 isSeller = true;
             }
         }
@@ -218,7 +218,7 @@ public class OrderController {
 
         if (newStatus == OrderStatus.COMPLETED) {
             Restaurant restaurant = restaurantDAO.getRestaurantById(order.getRestaurantId());
-            User seller = userDAO.findUserByPhone(restaurant.getSellerPhoneNumbers().get(0)); // Assuming one seller
+            User seller = userDAO.findUserByPhone(restaurant.getSellerPhoneNumber());
             walletDAO.processOrderPayment(order, seller.getId(), userId);
         }
 
