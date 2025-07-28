@@ -17,6 +17,7 @@ import java.sql.SQLException;
 import java.sql.Timestamp;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.regex.Pattern;
 public class UserController {
@@ -143,7 +144,7 @@ public class UserController {
      * @throws ForbiddenException if the user's account is pending approval.
      * @throws ConflictException if there is a data conflict (e.g., optimistic locking failure).
      */
-    public Map<String, Object> handleGetProfile(Integer userId) throws SQLException, ResourceNotFoundException, TooManyRequestsException, InvalidInputException, ForbiddenException, UnauthorizedException, ConflictException {
+    public Map<String, Object> handleGetProfile(Integer userId) throws Exception {
         //401
         if (userId == null) {
             throw new UnauthorizedException("Invalid token or user not authenticated.");
@@ -235,13 +236,13 @@ public class UserController {
 
         userDAO.resetFailedLoginAttempts(phone);
 
+        String token = SessionRegistry.createSession(user.getId());
+        Map<String, Object> userResponseMap = buildUserResponseMap(user);
         Map<String, Object> response = new HashMap<>();
         response.put("status", 200);
-        response.put("message", "User logged in successfully.");
-        String token = SessionRegistry.createSession(user.getId());
+        response.put("message", "Login successful.");
         response.put("token", token);
-        response.put("user", user);
-
+        response.put("user", userResponseMap);
         return response;
     }
 
@@ -285,8 +286,6 @@ public class UserController {
             throw new ForbiddenException("admin role is not allowed for signup");
         }
 
-//        System.out.println("bank info: " + user.getBankInfo().getBankName() + " "
-//                + user.getBankInfo().getAccountNumber());
 
         if (user.getRole() == Role.CUSTOMER || user.getRole() == Role.COURIER
             || user.getRole() == Role.SELLER) {
@@ -350,7 +349,7 @@ public class UserController {
      * @throws TooManyRequestsException if the user exceeds the logout rate limit.
      * @throws ForbiddenException if the user is not in a state that allows logging out.
      */
-    public Map<String, Object> handleLogout(String token) throws UnauthorizedException, TooManyRequestsException, ForbiddenException, SQLException, ResourceNotFoundException, InvalidInputException, ConflictException {
+    public Map<String, Object> handleLogout(String token) throws Exception {
         //404
         if (token == null || token.isEmpty()) {
             throw new ResourceNotFoundException("No token provided.");
@@ -419,5 +418,22 @@ public class UserController {
 
             return false;
         }
+    }
+
+    /**
+     * Creates a map representation of a User object suitable for API responses,
+     * excluding sensitive information like the password.
+     * @param user The User object to convert.
+     * @return A map containing safe-to-expose user data.
+     */
+    private Map<String, Object> buildUserResponseMap(User user) {
+        Map<String, Object> userMap = new HashMap<>();
+        userMap.put("id", user.getId());
+        userMap.put("full_name", user.getName());
+        userMap.put("phone", user.getPhone());
+        userMap.put("email", user.getEmail());
+        userMap.put("role", user.getRole().getValue());
+        userMap.put("address", user.getAddress());
+        return userMap;
     }
 }
