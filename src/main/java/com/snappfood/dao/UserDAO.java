@@ -103,10 +103,8 @@ public class UserDAO {
     private boolean insertUser(User user, Connection existingConnection) throws SQLException {
         String sql = "INSERT INTO users (full_name, phone, email, password, role, address, profile_image, bank_name, account_number, courier_status) " +
                 "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
-        Connection conn = null;
-        try {
-            conn = (existingConnection != null) ? existingConnection : DatabaseManager.getConnection();
-            PreparedStatement stmt = conn.prepareStatement(sql);
+        try (Connection conn = DatabaseManager.getConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
             stmt.setString(1, user.getName());
             stmt.setString(2, user.getPhone());
             stmt.setString(3, user.getEmail());
@@ -129,7 +127,9 @@ public class UserDAO {
                 stmt.setNull(10, Types.VARCHAR);
             }
 
+
             stmt.executeUpdate();
+
             try (ResultSet generatedKeys = stmt.getGeneratedKeys()) {
                 if (generatedKeys.next()) {
                     int userId = generatedKeys.getInt(1);
@@ -139,10 +139,6 @@ public class UserDAO {
                 }
             }
             return true;
-        }  finally {
-            if (existingConnection == null && conn != null) {
-                conn.close();
-            }
         }
     }
 

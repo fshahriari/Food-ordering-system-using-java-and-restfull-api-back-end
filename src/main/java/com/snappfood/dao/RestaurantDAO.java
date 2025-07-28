@@ -20,24 +20,52 @@ public class RestaurantDAO {
     private static final String FAVORITE_RESTAURANTS_TABLE = "favorite_restaurants";
     private static final String RATINGS_TABLE = "ratings";
 
-    public int createPendingRestaurant(Restaurant restaurant) throws SQLException {
-        String sql = "INSERT INTO " + PENDING_RESTAURANTS_TABLE + " (name, logo_base64, address, phone_number, working_hours, category) VALUES (?, ?, ?, ?, ?, ?)";
-        try (Connection conn = DatabaseManager.getConnection();
-             PreparedStatement stmt = conn.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
-            stmt.setString(1, restaurant.getName());
-            stmt.setString(2, restaurant.getLogoBase64());
-            stmt.setString(3, restaurant.getAddress());
-            stmt.setString(4, restaurant.getPhoneNumber());
-            stmt.setString(5, restaurant.getWorkingHours());
-            stmt.setString(6, restaurant.getCategory());
-            stmt.executeUpdate();
+    public int createPendingRestaurant(Restaurant restaurant, String sellerPhoneNumber) throws SQLException {
+        Connection conn = null;
+        String insertRestaurantSql = "INSERT INTO " + PENDING_RESTAURANTS_TABLE + " (name, logo_base64, address, phone_number, working_hours, category) VALUES (?, ?, ?, ?, ?, ?)";
+        String insertSellerSql = "INSERT INTO " + RESTAURANT_SELLERS_TABLE + " (restaurant_id, seller_phone_number) VALUES (?, ?)";
 
-            try (ResultSet generatedKeys = stmt.getGeneratedKeys()) {
-                if (generatedKeys.next()) {
-                    return generatedKeys.getInt(1);
-                } else {
-                    throw new SQLException("Creating pending restaurant failed, no ID obtained.");
+        try {
+            conn = DatabaseManager.getConnection();
+            conn.setAutoCommit(false);
+
+            int restaurantId;
+            try (PreparedStatement stmt = conn.prepareStatement(insertRestaurantSql, Statement.RETURN_GENERATED_KEYS)) {
+                stmt.setString(1, restaurant.getName());
+                stmt.setString(2, restaurant.getLogoBase64());
+                stmt.setString(3, restaurant.getAddress());
+                stmt.setString(4, restaurant.getPhoneNumber());
+                stmt.setString(5, restaurant.getWorkingHours());
+                stmt.setString(6, restaurant.getCategory());
+                stmt.executeUpdate();
+
+                try (ResultSet generatedKeys = stmt.getGeneratedKeys()) {
+                    if (generatedKeys.next()) {
+                        restaurantId = generatedKeys.getInt(1);
+                    } else {
+                        throw new SQLException("Creating pending restaurant failed, no ID obtained.");
+                    }
                 }
+            }
+
+            try (PreparedStatement stmt = conn.prepareStatement(insertSellerSql)) {
+                stmt.setInt(1, restaurantId);
+                stmt.setString(2, sellerPhoneNumber);
+                stmt.executeUpdate();
+            }
+
+            conn.commit();
+            return restaurantId;
+
+        } catch (SQLException e) {
+            if (conn != null) {
+                conn.rollback();
+            }
+            throw e;
+        } finally {
+            if (conn != null) {
+                conn.setAutoCommit(true);
+                conn.close();
             }
         }
     }
@@ -295,6 +323,7 @@ public class RestaurantDAO {
         String selectPendingSql = "SELECT * FROM " + PENDING_RESTAURANTS_TABLE + " WHERE id = ?";
         String insertRestaurantSql = "INSERT INTO " + RESTAURANTS_TABLE + " (name, logo_base64, address, phone_number, working_hours, category, tax_fee, additional_fee) VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
         String deletePendingSql = "DELETE FROM " + PENDING_RESTAURANTS_TABLE + " WHERE id = ?";
+        String deleteSellerSql = "DELETE FROM " + RESTAURANT_SELLERS_TABLE + " WHERE restaurant_id = ?";
 
         try {
             conn = DatabaseManager.getConnection();
@@ -302,7 +331,8 @@ public class RestaurantDAO {
 
             PreparedStatement selectStmt = conn.prepareStatement(selectPendingSql);
             PreparedStatement insertStmt = conn.prepareStatement(insertRestaurantSql);
-            PreparedStatement deleteStmt = conn.prepareStatement(deletePendingSql);
+            PreparedStatement deletePendingStmt = conn.prepareStatement(deletePendingSql);
+            PreparedStatement deleteSellerStmt = conn.prepareStatement(deleteSellerSql);
 
             for (RestaurantStatusUpdate update : restaurantUpdates) {
                 selectStmt.setInt(1, update.getRestaurantId());
@@ -328,16 +358,18 @@ public class RestaurantDAO {
                     insertStmt.setInt(8, pendingRestaurant.getAdditionalFee());
                     insertStmt.addBatch();
 
-                    deleteStmt.setInt(1, update.getRestaurantId());
-                    deleteStmt.addBatch();
+                    deletePendingStmt.setInt(1, update.getRestaurantId());
+                    deletePendingStmt.addBatch();
                 } else if ("rejected".equalsIgnoreCase(update.getStatus())) {
-                    deleteStmt.setInt(1, update.getRestaurantId());
-                    deleteStmt.addBatch();
+                    deletePendingStmt.setInt(1, update.getRestaurantId());
+                    deletePendingStmt.addBatch();
+                    deleteSellerStmt.setInt(1, update.getRestaurantId());
+                    deleteSellerStmt.addBatch();
                 }
             }
 
             insertStmt.executeBatch();
-            deleteStmt.executeBatch();
+            deletePendingStmt.executeBatch();
             conn.commit();
 
         } catch (SQLException e) {

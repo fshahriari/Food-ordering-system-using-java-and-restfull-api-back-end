@@ -95,8 +95,10 @@ public class RestaurantController {
         if (restaurant.getTaxFee() < 0 || restaurant.getAdditionalFee() < 0) {
             throw new InvalidInputException("Fees cannot be negative.");
         }
-        int pendingRestaurantId = restaurantDAO.createPendingRestaurant(restaurant);
+
+        int pendingRestaurantId = restaurantDAO.createPendingRestaurant(restaurant, seller.getPhone());
         restaurant.setId(pendingRestaurantId);
+
         Map<String, Object> response = new HashMap<>();
         response.put("status", 201);
         response.put("message", "Restaurant registration request submitted successfully. Waiting for admin approval.");
