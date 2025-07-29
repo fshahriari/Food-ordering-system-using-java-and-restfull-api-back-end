@@ -10,47 +10,50 @@ public enum FoodCategory {
 
     @SerializedName("Fast Food")
     FAST_FOOD("Fast Food"),
-
-    @SerializedName("Vegetarian Food")
-    VEGETARIAN("Vegetarian Food"),
-
-    @SerializedName("Iranian Food")
-    IRANIAN("Iranian Food"),
-
     @SerializedName("Sea Food")
     SEA_FOOD("Sea Food"),
+    @SerializedName("Persian Food")
+    PERSIAN_FOOD("Persian Food"),
+    @SerializedName("Vegetarian Food")
+    VEGETARIAN_FOOD("Vegetarian Food"),
 
-    @SerializedName("UnDefined")
-    UNDEFINED("UnDefined");
+    @SerializedName("UNDEFINED")
+    UNDEFINED("Undefined");
 
-
-    private final String value;
-
-    FoodCategory(String value) {
-        this.value = value;
-    }
+    private final String displayName;
 
     /**
-     * @return The string representation of the category (e.g., "Fast Food").
+     * Constructor for the enum.
+     * @param displayName The user-friendly name for the category.
      */
-    public String getValue() {
-        return value;
+    FoodCategory(String displayName) {
+        this.displayName = displayName;
     }
 
     /**
-     * Converts a string to its corresponding FoodCategory enum constant.
-     * This is useful when reading data from the database.
-     * @param text The string to convert.
-     * @return The matching FoodCategory, or null if no match is found.
+     * Gets the user-friendly display name.
+     * @return The display name string.
+     */
+    public String getDisplayName() {
+        return displayName;
+    }
+
+    /**
+     * Finds a FoodCategory enum constant from a user-friendly string.
+     * This method is case-insensitive and is the safe way to parse category strings
+     * from client requests.
+     * * @param text The string to parse, e.g., "Fast Food".
+     * @return The matching FoodCategory constant.
+     * @throws IllegalArgumentException if no matching category is found.
      */
     public static FoodCategory fromString(String text) {
         if (text != null) {
-            for (FoodCategory b : FoodCategory.values()) {
-                if (text.equalsIgnoreCase(b.value)) {
-                    return b;
+            for (FoodCategory category : FoodCategory.values()) {
+                if (text.equalsIgnoreCase(category.displayName)) {
+                    return category;
                 }
             }
         }
-        return UNDEFINED;
+        throw new IllegalArgumentException("Cannot find a category for string: \"" + text + "\"");
     }
 }

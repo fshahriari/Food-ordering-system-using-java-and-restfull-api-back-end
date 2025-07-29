@@ -485,21 +485,6 @@ public class UserDAO {
         }
     }
 
-    /**
-     * Updates the status of a courier.
-     * @param courierId The ID of the courier to update.
-     * @param newStatus The new status to set.
-     * @throws SQLException if a database error occurs.
-     */
-    public void updateCourierStatus(int courierId, CourierStatus newStatus) throws SQLException { //TODO
-        String sql = "UPDATE " + USERS_TABLE + " SET courier_status = ? WHERE id = ?";
-        try (Connection conn = DatabaseManager.getConnection();
-             PreparedStatement stmt = conn.prepareStatement(sql)) {
-            stmt.setString(1, newStatus.name());
-            stmt.setInt(2, courierId);
-            stmt.executeUpdate();
-        }
-    }
 
     /**
      * Retrieves all active users from the database.

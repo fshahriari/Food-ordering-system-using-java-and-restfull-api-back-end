@@ -161,7 +161,7 @@ public class RestaurantController {
         }
 
         food.setRestaurantId(restaurantId);
-        food.setCategory(FoodCategory.valueOf(restaurantDAO.getRestaurantById(restaurantId).getCategory()));
+        food.setCategory(food.getCategory() != null ? food.getCategory() : FoodCategory.UNDEFINED);
         int foodId = restaurantDAO.addFoodItem(food);
         food.setId(foodId);
 

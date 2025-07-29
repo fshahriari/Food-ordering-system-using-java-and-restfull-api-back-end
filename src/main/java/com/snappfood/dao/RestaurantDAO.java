@@ -107,7 +107,7 @@ public class RestaurantDAO {
             stmt.setString(2, food.getImageBase64());
             stmt.setString(3, food.getDescription());
             stmt.setInt(4, food.getPrice());
-            stmt.setString(5, food.getCategory().getValue());
+            stmt.setString(5, food.getCategory().getDisplayName());
             stmt.setInt(6, food.getSupply());
             stmt.setInt(7, food.getRestaurantId());
 
@@ -186,7 +186,7 @@ public class RestaurantDAO {
             stmt.setString(2, food.getDescription());
             stmt.setInt(3, food.getPrice());
             stmt.setInt(4, food.getSupply());
-            stmt.setString(5, food.getCategory().getValue());
+            stmt.setString(5, food.getCategory().getDisplayName());
             stmt.setString(6, food.getImageBase64());
             if (food.getKeywords() != null && !food.getKeywords().isEmpty()) {
                 stmt.setString(7, String.join(",", food.getKeywords()));

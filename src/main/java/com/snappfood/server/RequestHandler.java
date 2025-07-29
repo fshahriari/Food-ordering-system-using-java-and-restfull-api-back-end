@@ -188,9 +188,12 @@ public class RequestHandler implements Runnable {
                             responseMap = restaurantController.handleUpdateRestaurant(restaurantId, updateData, userId);
                         }
                         else if (pathSegments.length == 4 && pathSegments[3].equals("item") && method.equals("POST")) {
-                            Integer restaurantId = Integer.parseInt(pathSegments[2]);
-                            Food newFood = gson.fromJson(body, Food.class);
-                            responseMap = restaurantController.handleAddFoodItemToMasterList(restaurantId, userId, newFood);
+                            if (userId == null) {
+                                throw new UnauthorizedException("Authentication required. Please log in.");
+                            }
+                            int restaurantId = Integer.parseInt(path.split("/")[2]);
+                            Food food = gson.fromJson(body, Food.class);
+                            responseMap = restaurantController.handleAddFoodItemToMasterList(restaurantId, userId, food);
                         } else if (pathSegments.length == 5 && pathSegments[3].equals("item") && method.equals("PUT")) {
                             Integer restaurantId = Integer.parseInt(pathSegments[2]);
                             Integer itemId = Integer.parseInt(pathSegments[4]);
