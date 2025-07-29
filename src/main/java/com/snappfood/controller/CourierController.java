@@ -69,7 +69,7 @@ public class CourierController {
 
         courier courier = (courier) user;
         if (courier.getCourierStatus() == CourierStatus.DELIVERING) {
-            throw new ConflictException("You are already delivering an order and cannot accept another one.");
+            throw new ConflictException("You are already delivering an order...");
         }
 
 
@@ -82,9 +82,11 @@ public class CourierController {
         switch (statusStr.toLowerCase()) {
             case "accepted":
                 newStatus = OrderStatus.ON_THE_WAY;
+                userDAO.updateCourierStatus(userId, CourierStatus.DELIVERING);
                 break;
             case "delivered":
                 newStatus = OrderStatus.COMPLETED;
+                userDAO.updateCourierStatus(userId, CourierStatus.AVAILABLE);
                 break;
             default:
                 throw new InvalidInputException("Invalid status value. Must be 'accepted' or 'delivered'.");

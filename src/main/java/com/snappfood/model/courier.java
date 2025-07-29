@@ -7,7 +7,7 @@ public class courier extends User
     String vehicleType;
     String licenseNumber;
     private ConfirmStatus status = ConfirmStatus.PENDING;
-    private CourierStatus courierStatus;
+    private CourierStatus courierStatus = CourierStatus.AVAILABLE;
 
     public courier() {}
 

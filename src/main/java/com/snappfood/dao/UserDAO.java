@@ -494,7 +494,7 @@ public class UserDAO {
      * @param newStatus The new status to set.
      * @throws SQLException if a database error occurs.
      */
-    public void updateCourierStatus(int courierId, CourierStatus newStatus) throws SQLException { //TODO
+    public void updateCourierStatus(int courierId, CourierStatus newStatus) throws SQLException {
         String sql = "UPDATE " + USERS_TABLE + " SET courier_status = ? WHERE id = ?";
         try (Connection conn = DatabaseManager.getConnection();
              PreparedStatement stmt = conn.prepareStatement(sql)) {
