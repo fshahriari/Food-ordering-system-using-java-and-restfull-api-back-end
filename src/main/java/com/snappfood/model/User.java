@@ -1,15 +1,46 @@
 package com.snappfood.model;
 
+import com.google.gson.annotations.SerializedName;
+import com.snappfood.controller.UserController;
+import com.snappfood.exception.*;
+
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Paths;
+import java.sql.SQLException;
+import java.sql.Timestamp;
+import java.util.Arrays;
+import java.util.List;
+import java.util.Map;
+
+
 public class User {
     private int id;
+
+    @SerializedName("full_name")
     private String name;
+
+    @SerializedName("phone")
     private String phone;
+
+    @SerializedName("email")
     private String email;
+
+    @SerializedName("password")
     private String password;
+
+    @SerializedName("role")
     private Role role;
+
+    @SerializedName("address")
     private String address;
+
+    @SerializedName("profileImageBase64")
     private String profileImageBase64;
+
+    @SerializedName("bank_info")
     private BankInfo bankInfo;
+
     private int failedLoginAttempts;
     private java.sql.Timestamp lockTime;
 

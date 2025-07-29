@@ -257,6 +257,7 @@ public class UserController {
             || userDAO.isUserPending(user.getPhone())) {
             throw new DuplicatePhoneNumberException("Phone number already exists.");
         }
+        //400
         if (user.getPhone() == null || !user.getPhone().matches("^[0-9]{10,15}$")) {
             throw new InvalidInputException("Invalid phone_number");
         }
