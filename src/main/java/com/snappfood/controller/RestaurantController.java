@@ -7,6 +7,7 @@ import com.snappfood.exception.*;
 import com.snappfood.model.*;
 
 import java.sql.SQLException;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -128,12 +129,14 @@ public class RestaurantController {
         List<Restaurant> approvedRestaurants = restaurantDAO.getRestaurantsBySellerPhoneNumber(seller.getPhone());
         List<Restaurant> pendingRestaurants = restaurantDAO.getPendingRestaurantsBySellerPhoneNumber(seller.getPhone());
 
+        // Combine both lists into one
+        List<Restaurant> allRestaurants = new ArrayList<>();
+        allRestaurants.addAll(approvedRestaurants);
+        allRestaurants.addAll(pendingRestaurants);
 
         Map<String, Object> response = new HashMap<>();
         response.put("status", 200);
-        response.put("approved_restaurants", approvedRestaurants);
-        response.put("pending_restaurants", pendingRestaurants);
-
+        response.put("restaurants", allRestaurants);
         return response;
     }
 
@@ -590,11 +593,19 @@ public class RestaurantController {
             menuItems.put(menu.getTitle(), foodItems);
         }
 
+        List<Menu> menues = restaurantDAO.getMenusByRestaurantId(restaurantId);
+        List<String> menuTitles = new ArrayList<>();
         Map<String, Object> response = new HashMap<>();
         response.put("status", 200);
-        response.put("restaurant_id", restaurantId);
-        response.put("restaurant_name", restaurant.getName());
-        response.put("menus", menuItems);
+        response.put("vendor", restaurant);
+
+        for (Menu menu : menues) {
+            menuTitles.add(menu.getTitle());
+            List<Food> foodItems = restaurantDAO.getFoodItemsByMenuId(menu.getId());
+            response.put(menu.getTitle(), foodItems);
+        }
+        response.put("menu_titles", menuTitles);
+
 
         return response;
     }

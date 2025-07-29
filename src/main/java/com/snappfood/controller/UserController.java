@@ -38,8 +38,9 @@ public class UserController {
 
     /**
      * Handles the logic for updating a user's profile.
+     *
      * @param userId The ID of the authenticated user.
-     * @param body The raw JSON string from the request body.
+     * @param body   The raw JSON string from the request body.
      * @return A map with a success message and the updated user object.
      * @throws Exception for various error conditions.
      */
@@ -57,7 +58,8 @@ public class UserController {
             throw new ForbiddenException("Pending users can't edit their profile.");
         }
 
-        Type type = new TypeToken<Map<String, Object>>() {}.getType();
+        Type type = new TypeToken<Map<String, Object>>() {
+        }.getType();
         Map<String, Object> updatedData = gson.fromJson(body, type);
 
         if (updatedData.containsKey("full_name")) {
@@ -82,7 +84,7 @@ public class UserController {
         if (updatedData.containsKey("phone")) {
             String newPhone = (String) updatedData.get("phone");
             if ((!newPhone.equals(existingUser.getPhone()) && userDAO.findUserByPhone(newPhone) != null)
-                || userDAO.findUserByPhone(newPhone) != null) {
+                    || userDAO.findUserByPhone(newPhone) != null) {
                 throw new ConflictException("Phone number already in use.");
             }
             existingUser.setPhone(newPhone);
@@ -104,7 +106,7 @@ public class UserController {
             Map<String, String> bankInfoMap = (Map<String, String>) updatedData.get("bank_info");
             BankInfo bankInfo = new BankInfo(bankInfoMap.get("bank_name"), bankInfoMap.get("account_number"));
             if (bankInfo.getBankName() == null || bankInfo.getBankName().isEmpty()
-                || bankInfo.getAccountNumber() == null || bankInfo.getAccountNumber().isEmpty()) {
+                    || bankInfo.getAccountNumber() == null || bankInfo.getAccountNumber().isEmpty()) {
                 throw new InvalidInputException("Bank info required!");
             }
             existingUser.setBankInfo(bankInfo);
@@ -134,15 +136,16 @@ public class UserController {
 
     /**
      * Handles all logic for fetching a user profile, including authentication and error checking.
+     *
      * @param userId The ID of the authenticated user, which can be null if authentication failed.
      * @return A map containing the user's profile information.
-     * @throws SQLException if a database error occurs.
-     * @throws UnauthorizedException if the userId is null (token was invalid or missing).
-     * @throws InvalidInputException if the userId is not a positive integer.
+     * @throws SQLException              if a database error occurs.
+     * @throws UnauthorizedException     if the userId is null (token was invalid or missing).
+     * @throws InvalidInputException     if the userId is not a positive integer.
      * @throws ResourceNotFoundException if no user is found for the given ID.
-     * @throws TooManyRequestsException if the user's account is locked.
-     * @throws ForbiddenException if the user's account is pending approval.
-     * @throws ConflictException if there is a data conflict (e.g., optimistic locking failure).
+     * @throws TooManyRequestsException  if the user's account is locked.
+     * @throws ForbiddenException        if the user's account is pending approval.
+     * @throws ConflictException         if there is a data conflict (e.g., optimistic locking failure).
      */
     public Map<String, Object> handleGetProfile(Integer userId) throws Exception {
         //401
@@ -250,7 +253,7 @@ public class UserController {
         }
         //409
         if (userDAO.findUserByPhone(user.getPhone()) != null
-            || userDAO.isUserPending(user.getPhone())) {
+                || userDAO.isUserPending(user.getPhone())) {
             throw new DuplicatePhoneNumberException("Phone number already exists.");
         }
         //400
@@ -267,9 +270,9 @@ public class UserController {
             throw new InvalidInputException("Invalid email");
         }
         if (user.getRole().equals(Role.CUSTOMER) &&
-               ((user.getAddress() == null)
-                || !user.getAddress().matches("^[\\p{L}\\p{N}\\s,.-]{0,500}$")
-                || user.getAddress().trim().length() < 3)) {
+                ((user.getAddress() == null)
+                        || !user.getAddress().matches("^[\\p{L}\\p{N}\\s,.-]{0,500}$")
+                        || user.getAddress().trim().length() < 3)) {
             throw new InvalidInputException("Invalid address");
         }
         if (user.getRole() == null || user.getRole().equals("undefined")
@@ -279,13 +282,13 @@ public class UserController {
         if (user.getProfileImageBase64() != null && !GenerallController.isValidImage(user.getProfileImageBase64())) {
             throw new InvalidInputException("Invalid profile image");
         }
-        if(user.getRole() == Role.ADMIN) {
+        if (user.getRole() == Role.ADMIN) {
             throw new ForbiddenException("admin role is not allowed for signup");
         }
 
 
         if (user.getRole() == Role.CUSTOMER || user.getRole() == Role.COURIER
-            || user.getRole() == Role.SELLER) {
+                || user.getRole() == Role.SELLER) {
             if (user.getBankInfo() == null) {
                 throw new InvalidInputException("Invalid bank info");
             }
@@ -296,7 +299,6 @@ public class UserController {
                 throw new InvalidInputException("Invalid account number");
             }
         }
-
 
 
         //415 in request handler
@@ -340,11 +342,12 @@ public class UserController {
 
     /**
      * Handles the logic for logging out a user.
+     *
      * @param token The session token of the user.
      * @return A map with a success message.
-     * @throws UnauthorizedException if the token is missing or invalid.
+     * @throws UnauthorizedException    if the token is missing or invalid.
      * @throws TooManyRequestsException if the user exceeds the logout rate limit.
-     * @throws ForbiddenException if the user is not in a state that allows logging out.
+     * @throws ForbiddenException       if the user is not in a state that allows logging out.
      */
     public Map<String, Object> handleLogout(String token) throws Exception {
         //404
@@ -420,6 +423,7 @@ public class UserController {
     /**
      * Creates a map representation of a User object suitable for API responses,
      * excluding sensitive information like the password.
+     *
      * @param user The User object to convert.
      * @return A map containing safe-to-expose user data.
      */
@@ -431,6 +435,15 @@ public class UserController {
         userMap.put("email", user.getEmail());
         userMap.put("role", user.getRole().getValue());
         userMap.put("address", user.getAddress());
+        userMap.put("profileImageBase64", user.getProfileImageBase64());
+        userMap.put("bank_info", user.getBankInfo());
+
+        // Include seller-specific fields if the user is a seller
+        if (user instanceof Seller) {
+            Seller seller = (Seller) user;
+            userMap.put("brand_name", seller.getBrandName());
+            userMap.put("brand_description", seller.getBrandDescription());
+        }
         return userMap;
     }
 }
