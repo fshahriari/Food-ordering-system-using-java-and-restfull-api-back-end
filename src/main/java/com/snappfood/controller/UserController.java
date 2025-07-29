@@ -272,7 +272,7 @@ public class UserController {
         }
         if (user.getRole().equals(Role.CUSTOMER) &&
                ((user.getAddress() == null)
-                || !user.getAddress().matches("^[\\p{L}\\p{N}\\s,.-]{0,200}$")
+                || !user.getAddress().matches("^[\\p{L}\\p{N}\\s,.-]{0,500}$")
                 || user.getAddress().trim().length() < 3)) {
             throw new InvalidInputException("Invalid address");
         }
