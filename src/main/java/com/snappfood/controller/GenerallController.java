@@ -43,4 +43,15 @@ public class GenerallController {
         byte [] imageBytes = Base64.getDecoder().decode(imageBase64);
         return isValidImage(imageBytes);
     }
+
+    public static byte[] toByteArray(String profileImageBase64) {
+    if (profileImageBase64 == null || profileImageBase64.isEmpty()) {
+        return null;
+    }
+    try {
+        return Base64.getDecoder().decode(profileImageBase64);
+    } catch (IllegalArgumentException e) {
+        return null;
+    }
+}
 }

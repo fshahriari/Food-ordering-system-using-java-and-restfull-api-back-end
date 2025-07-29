@@ -265,8 +265,7 @@ public class RestaurantDAO {
         restaurant.setPhoneNumber(rs.getString("phone_number"));
         restaurant.setWorkingHours(rs.getString("working_hours"));
         restaurant.setCategory(rs.getString("category"));
-        // UPDATED: Set the seller phone number directly
-        if (rs.getMetaData().getColumnCount() > 9) { // Avoid error if column doesn't exist in all queries
+        if (rs.getMetaData().getColumnCount() > 9) {
             restaurant.setSellerPhoneNumber(rs.getString("seller_phone_number"));
         }
         return restaurant;

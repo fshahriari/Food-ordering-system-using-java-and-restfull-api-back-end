@@ -1,5 +1,6 @@
 package com.snappfood.dao;
 
+import com.snappfood.controller.GenerallController;
 import com.snappfood.database.DatabaseManager;
 import com.snappfood.model.*;
 import java.util.Base64;
@@ -70,7 +71,7 @@ public class UserDAO {
             stmt.setString(4, user.getPassword());
             stmt.setString(5, user.getRole().getValue());
             stmt.setString(6, user.getAddress());
-            stmt.setBytes(7, Base64.getDecoder().decode(user.getProfileImageBase64()));
+            stmt.setBytes(7, GenerallController.toByteArray(user.getProfileImageBase64()));
 
             BankInfo bankInfo = user.getBankInfo();
             if (bankInfo != null) {
@@ -403,7 +404,7 @@ public class UserDAO {
 
         byte[] profileImageBytes = rs.getBytes("profile_image");
         if (profileImageBytes != null) {
-            user.setProfileImageBase64(Base64.getEncoder().encodeToString(profileImageBytes));
+            user.setProfileImageBase64(GenerallController.toBase64(profileImageBytes));
         } else {
             user.setProfileImageBase64(null);
         }
