@@ -71,7 +71,11 @@ public class UserDAO {
             stmt.setString(4, user.getPassword());
             stmt.setString(5, user.getRole().getValue());
             stmt.setString(6, user.getAddress());
-            stmt.setBytes(7, GenerallController.toByteArray(user.getProfileImageBase64()));
+            if (GenerallController.isValidImage(user.getProfileImageBase64())) {
+                stmt.setBytes(7, user.getProfileImageBase64().getBytes());
+            }
+            else
+                stmt.setBytes(7, "".getBytes());
 
             BankInfo bankInfo = user.getBankInfo();
             if (bankInfo != null) {
@@ -115,7 +119,11 @@ public class UserDAO {
             stmt.setString(4, user.getPassword());
             stmt.setString(5, user.getRole().getValue());
             stmt.setString(6, user.getAddress());
-            stmt.setBytes(7, Base64.getDecoder().decode(user.getProfileImageBase64()));
+            if (GenerallController.isValidImage(user.getProfileImageBase64())) {
+                stmt.setBytes(7, user.getProfileImageBase64().getBytes());
+            }
+            else
+                stmt.setBytes(7, "".getBytes());
 
             BankInfo bankInfo = user.getBankInfo();
             if (bankInfo != null) {
@@ -160,7 +168,11 @@ public class UserDAO {
             stmt.setString(4, user.getPassword());
             stmt.setString(5, user.getRole().getValue());
             stmt.setString(6, user.getAddress());
-            stmt.setBytes(7, Base64.getDecoder().decode(user.getProfileImageBase64()));
+            if (GenerallController.isValidImage(user.getProfileImageBase64())) {
+                stmt.setBytes(7, user.getProfileImageBase64().getBytes());
+            }
+            else
+                stmt.setBytes(7, "".getBytes());
 
             BankInfo bankInfo = user.getBankInfo();
             if (bankInfo != null) {
@@ -204,34 +216,6 @@ public class UserDAO {
         return user;
     }
 
-    public User findUserByPhoneAndPassword(String phone, String password) throws SQLException {
-        String sql = "SELECT * FROM users WHERE phone = ?";
-        try (Connection conn = DatabaseManager.getConnection();
-             PreparedStatement stmt = conn.prepareStatement(sql)) {
-            stmt.setString(1, phone);
-            try (ResultSet rs = stmt.executeQuery()) {
-                if (rs.next()) {
-                    return extractUserFromResultSet(rs);
-                }
-            }
-        }
-        return null;
-    }
-
-    public User findPendingUserByPhoneAndPassword(String phone, String password) throws SQLException {
-        String sql = "SELECT * FROM pending_users WHERE phone = ? AND password = ?";
-        try (Connection conn = DatabaseManager.getConnection();
-             PreparedStatement stmt = conn.prepareStatement(sql)) {
-            stmt.setString(1, phone);
-            stmt.setString(2, password);
-            try (ResultSet rs = stmt.executeQuery()) {
-                if (rs.next()) {
-                    return extractUserFromResultSet(rs);
-                }
-            }
-        }
-        return null;
-    }
 
     public boolean isUserPending(String phone) throws SQLException {
         return findInTable("pending_users", phone) != null;
@@ -508,7 +492,7 @@ public class UserDAO {
      * @param newStatus The new status to set.
      * @throws SQLException if a database error occurs.
      */
-    public void updateCourierStatus(int courierId, CourierStatus newStatus) throws SQLException {
+    public void updateCourierStatus(int courierId, CourierStatus newStatus) throws SQLException { //TODO
         String sql = "UPDATE " + USERS_TABLE + " SET courier_status = ? WHERE id = ?";
         try (Connection conn = DatabaseManager.getConnection();
              PreparedStatement stmt = conn.prepareStatement(sql)) {

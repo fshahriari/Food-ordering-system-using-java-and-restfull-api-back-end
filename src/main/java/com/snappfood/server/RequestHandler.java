@@ -86,7 +86,7 @@ public class RequestHandler implements Runnable {
         try {
             // Log the incoming request
             if (request == null || request.trim().isEmpty()) {
-                return; // Ignore empty requests and close connection
+                return;
             }
 
             String[] requestParts = request.split("\r\n\r\n", 2);
@@ -109,6 +109,10 @@ public class RequestHandler implements Runnable {
             String path = pathParts[0];
             String query = pathParts.length > 1 ? pathParts[1] : "";
             Map<String, String> queryParams = parseQueryParams(query);
+
+            System.out.println("HTTP Method: " + method);
+            System.out.println("Endpoint: " + path);
+            System.out.println("Request Body: " + body);
 
             Map<String, String> headers = new HashMap<>();
             for (int i = 1; i < requestLines.length; i++) {
