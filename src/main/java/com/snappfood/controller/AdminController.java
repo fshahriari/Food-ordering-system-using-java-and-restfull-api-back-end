@@ -10,6 +10,7 @@ import com.snappfood.exception.UnauthorizedException;
 import com.snappfood.model.*;
 
 import java.sql.SQLException;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -116,21 +117,30 @@ public class AdminController {
      * @return A map with a success message.
      * @throws Exception for authorization, validation, or database errors.
      */
-    public Map<String, Object> handleUpdatePendingOrders(Integer adminId, List<Order> orderUpdates) throws Exception {
+    public Map<String, Object> handleUpdatePendingOrders(Integer adminId, List<OrderStatusUpdate> orderUpdates) throws Exception {
         authorizeAdmin(adminId);
 
         if (orderUpdates == null || orderUpdates.isEmpty()) {
             throw new InvalidInputException("Request body cannot be empty.");
         }
-        for (Order update : orderUpdates) {
-            if (update.getId() <= 0 || update.getStatus() == null ||
-                    (update.getStatus() != com.snappfood.model.OrderStatus.PENDING_VENDOR_APPROVAL && update.getStatus() != com.snappfood.model.OrderStatus.REJECTED_BY_ADMIN)) {
-                throw new InvalidInputException("Invalid data format for order update. Each entry must have a valid 'id' and a 'status' of 'PENDING_VENDOR_APPROVAL' or 'REJECTED_BY_ADMIN'.");
+
+        List<Order> ordersToUpdate = new ArrayList<>();
+        for (OrderStatusUpdate update : orderUpdates) {
+            Order order = new Order();
+            order.setId(update.getOrderId());
+
+            if ("approved".equalsIgnoreCase(update.getStatus())) {
+                order.setStatus(OrderStatus.PENDING_VENDOR_APPROVAL);
+            } else if ("rejected".equalsIgnoreCase(update.getStatus())) {
+                order.setStatus(OrderStatus.REJECTED_BY_ADMIN);
+            } else {
+                throw new InvalidInputException("Invalid status value for order " + update.getOrderId() + ". Must be 'approved' or 'rejected'.");
             }
+            ordersToUpdate.add(order);
         }
 
         try {
-            orderDAO.updatePendingOrdersBatch(orderUpdates);
+            orderDAO.updatePendingOrdersBatch(ordersToUpdate);
         } catch (SQLException e) {
             throw new InvalidInputException(e.getMessage());
         }
