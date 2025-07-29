@@ -129,14 +129,10 @@ public class RestaurantController {
         List<Restaurant> approvedRestaurants = restaurantDAO.getRestaurantsBySellerPhoneNumber(seller.getPhone());
         List<Restaurant> pendingRestaurants = restaurantDAO.getPendingRestaurantsBySellerPhoneNumber(seller.getPhone());
 
-        // Combine both lists into one
-        List<Restaurant> allRestaurants = new ArrayList<>();
-        allRestaurants.addAll(approvedRestaurants);
-        allRestaurants.addAll(pendingRestaurants);
-
         Map<String, Object> response = new HashMap<>();
         response.put("status", 200);
-        response.put("restaurants", allRestaurants);
+        response.put("approved_restaurants", approvedRestaurants);
+        response.put("pending_restaurants", pendingRestaurants);
         return response;
     }
 
@@ -150,9 +146,9 @@ public class RestaurantController {
         if (food == null || food.getName() == null || food.getName().trim().isEmpty()) {
             throw new InvalidInputException("Food name is required.");
         }
-        if (!GenerallController.isValidImage(food.getImageBase64())) {
-            throw new InvalidInputException("Food image is required.");
-        }
+//        if (!GenerallController.isValidImage(food.getImageBase64())) {
+//            throw new InvalidInputException("Food image is required.");
+//        }
         if (food.getDescription() != null && food.getDescription().length() > 200) {
             throw new InvalidInputException("Description cannot exceed 200 characters.");
         }

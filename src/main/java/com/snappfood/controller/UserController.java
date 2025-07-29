@@ -438,7 +438,7 @@ public class UserController {
         userMap.put("profileImageBase64", user.getProfileImageBase64());
         userMap.put("bank_info", user.getBankInfo());
 
-        // Include seller-specific fields if the user is a seller
+        //seller-specific fields
         if (user instanceof Seller) {
             Seller seller = (Seller) user;
             userMap.put("brand_name", seller.getBrandName());
