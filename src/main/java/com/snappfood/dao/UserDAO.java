@@ -2,11 +2,11 @@ package com.snappfood.dao;
 
 import com.snappfood.database.DatabaseManager;
 import com.snappfood.model.*;
+import java.util.Base64;
+
 
 import java.sql.*;
 import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Base64;
 import java.util.List;
 
 public class UserDAO {
@@ -63,49 +63,6 @@ public class UserDAO {
         String sql = "INSERT INTO users (full_name, phone, email, password, role, address, profile_image, bank_name, account_number, courier_status) " +
                 "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
         try (Connection conn = DatabaseManager.getConnection();
-             PreparedStatement stmt = conn.prepareStatement(sql)) {
-            stmt.setString(1, user.getName());
-            stmt.setString(2, user.getPhone());
-            stmt.setString(3, user.getEmail());
-            stmt.setString(4, user.getPassword());
-            stmt.setString(5, user.getRole().getValue());
-            stmt.setString(6, user.getAddress());
-            stmt.setBytes(7, user.getProfileImageBase64().getBytes());
-
-            BankInfo bankInfo = user.getBankInfo();
-            if (bankInfo != null) {
-                stmt.setString(8, bankInfo.getBankName());
-                stmt.setString(9, bankInfo.getAccountNumber());
-            } else {
-                stmt.setNull(8, java.sql.Types.VARCHAR);
-                stmt.setNull(9, java.sql.Types.VARCHAR);
-            }
-            if (user instanceof courier) {
-                stmt.setString(10, ((courier) user).getCourierStatus().name());
-            } else {
-                stmt.setNull(10, Types.VARCHAR);
-            }
-
-
-            stmt.executeUpdate();
-
-            try (ResultSet generatedKeys = stmt.getGeneratedKeys()) {
-                if (generatedKeys.next()) {
-                    int userId = generatedKeys.getInt(1);
-                    new WalletDAO().createWallet(userId);
-                } else {
-                    throw new SQLException("Creating user failed, no ID obtained.");
-                }
-            }
-
-            return true;
-        }
-    }
-
-    private boolean insertUser(User user, Connection existingConnection) throws SQLException {
-        String sql = "INSERT INTO users (full_name, phone, email, password, role, address, profile_image, bank_name, account_number, courier_status) " +
-                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
-        try (Connection conn = DatabaseManager.getConnection();
              PreparedStatement stmt = conn.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
             stmt.setString(1, user.getName());
             stmt.setString(2, user.getPhone());
@@ -113,7 +70,7 @@ public class UserDAO {
             stmt.setString(4, user.getPassword());
             stmt.setString(5, user.getRole().getValue());
             stmt.setString(6, user.getAddress());
-            stmt.setBytes(7, user.getProfileImageBase64().getBytes());
+            stmt.setBytes(7, Base64.getDecoder().decode(user.getProfileImageBase64()));
 
             BankInfo bankInfo = user.getBankInfo();
             if (bankInfo != null) {
@@ -141,6 +98,53 @@ public class UserDAO {
                 }
             }
             return true;
+        }
+    }
+
+    private boolean insertUser(User user, Connection existingConnection) throws SQLException {
+        String sql = "INSERT INTO users (full_name, phone, email, password, role, address, profile_image, bank_name, account_number, courier_status) " +
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+        Connection conn = null;
+        try {
+            conn = (existingConnection != null) ? existingConnection : DatabaseManager.getConnection();
+            PreparedStatement stmt = conn.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS);
+            stmt.setString(1, user.getName());
+            stmt.setString(2, user.getPhone());
+            stmt.setString(3, user.getEmail());
+            stmt.setString(4, user.getPassword());
+            stmt.setString(5, user.getRole().getValue());
+            stmt.setString(6, user.getAddress());
+            stmt.setBytes(7, Base64.getDecoder().decode(user.getProfileImageBase64()));
+
+            BankInfo bankInfo = user.getBankInfo();
+            if (bankInfo != null) {
+                stmt.setString(8, bankInfo.getBankName());
+                stmt.setString(9, bankInfo.getAccountNumber());
+            } else {
+                stmt.setNull(8, java.sql.Types.VARCHAR);
+                stmt.setNull(9, java.sql.Types.VARCHAR);
+            }
+            if (user instanceof courier) {
+                stmt.setString(10, ((courier) user).getCourierStatus().name());
+            } else {
+                stmt.setNull(10, Types.VARCHAR);
+            }
+
+            stmt.executeUpdate();
+
+            try (ResultSet generatedKeys = stmt.getGeneratedKeys()) {
+                if (generatedKeys.next()) {
+                    int userId = generatedKeys.getInt(1);
+                    new WalletDAO().createWallet(userId); // Create wallet for new user
+                } else {
+                    throw new SQLException("Creating user failed, no ID obtained.");
+                }
+            }
+            return true;
+        }  finally {
+            if (existingConnection == null && conn != null) {
+                conn.close();
+            }
         }
     }
 
@@ -396,7 +400,13 @@ public class UserDAO {
         user.setEmail(rs.getString("email"));
         user.setPassword(rs.getString("password"));
         user.setAddress(rs.getString("address"));
-        user.setProfileImageBase64(Base64.getEncoder().encodeToString(rs.getBytes("profile_image")));
+
+        byte[] profileImageBytes = rs.getBytes("profile_image");
+        if (profileImageBytes != null) {
+            user.setProfileImageBase64(Base64.getEncoder().encodeToString(profileImageBytes));
+        } else {
+            user.setProfileImageBase64(null);
+        }
 
         String bankName = rs.getString("bank_name");
         String accountNumber = rs.getString("account_number");
@@ -491,30 +501,27 @@ public class UserDAO {
         }
     }
 
-    public boolean isUserCustomer(String clientIp) {
-        try {
-            String sql = "SELECT COUNT(*) FROM users WHERE role = ? AND phone = ?";
-            try (Connection conn = DatabaseManager.getConnection();
-                 PreparedStatement stmt = conn.prepareStatement(sql)) {
-                stmt.setString(1, Role.CUSTOMER.getValue());
-                stmt.setString(2, clientIp);
-                try (ResultSet rs = stmt.executeQuery()) {
-                    if (rs.next()) {
-                        return rs.getInt(1) > 0;
-                    }
-                }
-            }
-        } catch (SQLException e) {
-            e.printStackTrace();
+    /**
+     * Updates the status of a courier.
+     * @param courierId The ID of the courier to update.
+     * @param newStatus The new status to set.
+     * @throws SQLException if a database error occurs.
+     */
+    public void updateCourierStatus(int courierId, CourierStatus newStatus) throws SQLException {
+        String sql = "UPDATE " + USERS_TABLE + " SET courier_status = ? WHERE id = ?";
+        try (Connection conn = DatabaseManager.getConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+            stmt.setString(1, newStatus.name());
+            stmt.setInt(2, courierId);
+            stmt.executeUpdate();
         }
-        return false;
     }
 
     /**
-            * Retrieves all active users from the database.
+     * Retrieves all active users from the database.
      * @return A list of all User objects.
-            * @throws SQLException if a database error occurs.
-            */
+     * @throws SQLException if a database error occurs.
+     */
     public List<User> getAllActiveUsers() throws SQLException {
         List<User> users = new ArrayList<>();
         String sql = "SELECT * FROM " + USERS_TABLE + " ORDER BY full_name ASC";

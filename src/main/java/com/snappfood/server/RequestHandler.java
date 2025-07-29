@@ -84,11 +84,16 @@ public class RequestHandler implements Runnable {
     public void run() {
         String httpResponse;
         try {
+            // Log the incoming request
             if (request == null || request.trim().isEmpty()) {
-                return; // Ignore empty requests
+                return; // Ignore empty requests and close connection
             }
 
-            String[] requestLines = request.split("\r\n");
+            String[] requestParts = request.split("\r\n\r\n", 2);
+            String headerPart = requestParts[0];
+            String body = (requestParts.length > 1) ? requestParts[1] : "";
+
+            String[] requestLines = headerPart.split("\r\n");
             if (requestLines.length == 0) {
                 throw new InvalidInputException("Invalid request");
             }
@@ -105,22 +110,11 @@ public class RequestHandler implements Runnable {
             String query = pathParts.length > 1 ? pathParts[1] : "";
             Map<String, String> queryParams = parseQueryParams(query);
 
-
             Map<String, String> headers = new HashMap<>();
-            String body = "";
-            boolean isHeaderSection = true;
             for (int i = 1; i < requestLines.length; i++) {
-                if (isHeaderSection) {
-                    if (requestLines[i].isEmpty()) {
-                        isHeaderSection = false;
-                        continue;
-                    }
-                    String[] headerParts = requestLines[i].split(": ", 2);
-                    if (headerParts.length == 2) {
-                        headers.put(headerParts[0], headerParts[1]);
-                    }
-                } else {
-                    body += requestLines[i];
+                String[] headerParts = requestLines[i].split(": ", 2);
+                if (headerParts.length == 2) {
+                    headers.put(headerParts[0], headerParts[1]);
                 }
             }
 
@@ -147,11 +141,9 @@ public class RequestHandler implements Runnable {
                 }
 
                 String[] pathSegments = path.split("/");
-                // FIX: Prevent ArrayIndexOutOfBoundsException on root path or malformed paths
                 if (pathSegments.length < 2) {
                     throw new ResourceNotFoundException("Not Found");
                 }
-
 
                 switch (pathSegments[1]) {
                     case "auth":

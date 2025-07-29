@@ -1,38 +1,20 @@
 package com.snappfood.model;
 
-import com.google.gson.annotations.SerializedName;
-
-import java.sql.Timestamp;
-
 public class User {
-    @SerializedName("full_name")
-    private String fullName;
-
+    private int id;
+    private String name;
     private String phone;
     private String email;
     private String password;
-    private String address;
-    private int id;
-
-    @SerializedName("profileImageBase64")
-    private String profileImageBase64;
-
-    private String profileImagePath;
-
     private Role role;
-
-    @SerializedName("bank_info")
+    private String address;
+    private String profileImageBase64;
     private BankInfo bankInfo;
-
     private int failedLoginAttempts;
-
-    private Timestamp lockTime;
-
-    public User() {
-    }
+    private java.sql.Timestamp lockTime;
 
     public User(String name, String phoneNumber, String email, String password, Role role, String address, String profileImageBase64, BankInfo bankInfo) {
-        this.fullName = name;
+        this.name = name;
         this.phone = phoneNumber;
         this.email = email;
         this.password = password;
@@ -41,6 +23,8 @@ public class User {
         this.profileImageBase64 = profileImageBase64;
         this.bankInfo = bankInfo;
     }
+
+    public User(){}
 
 
     public int getId() {
@@ -52,11 +36,11 @@ public class User {
     }
 
     public String getName() {
-        return fullName;
+        return name;
     }
 
     public void setName(String name) {
-        this.fullName = name;
+        this.name = name;
     }
 
     public String getPhone() {
