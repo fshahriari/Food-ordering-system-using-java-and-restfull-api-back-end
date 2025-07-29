@@ -22,14 +22,14 @@ public class WalletDAO {
     private static final String FOOD_ITEMS_TABLE = "food_items";
 
     /**
-     * Creates a new wallet for a user, typically upon registration.
+     * Creates a new wallet for a user using an existing database connection.
      * @param userId The ID of the user.
+     * @param conn The existing database connection.
      * @throws SQLException if a database error occurs.
      */
-    public void createWallet(int userId) throws SQLException {
+    public void createWallet(int userId, Connection conn) throws SQLException {
         String sql = "INSERT INTO " + WALLETS_TABLE + " (user_id, balance) VALUES (?, ?)";
-        try (Connection conn = DatabaseManager.getConnection();
-             PreparedStatement stmt = conn.prepareStatement(sql)) {
+        try (PreparedStatement stmt = conn.prepareStatement(sql)) {
             stmt.setInt(1, userId);
             stmt.setInt(2, 0); // Initial balance is 0
             stmt.executeUpdate();

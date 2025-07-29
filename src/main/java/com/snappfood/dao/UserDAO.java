@@ -97,7 +97,7 @@ public class UserDAO {
             try (ResultSet generatedKeys = stmt.getGeneratedKeys()) {
                 if (generatedKeys.next()) {
                     int userId = generatedKeys.getInt(1);
-                    new WalletDAO().createWallet(userId); // Create wallet for new user
+                    new WalletDAO().createWallet(userId, conn);
                 } else {
                     throw new SQLException("Creating user failed, no ID obtained.");
                 }
@@ -143,7 +143,7 @@ public class UserDAO {
             try (ResultSet generatedKeys = stmt.getGeneratedKeys()) {
                 if (generatedKeys.next()) {
                     int userId = generatedKeys.getInt(1);
-                    new WalletDAO().createWallet(userId); // Create wallet for new user
+                    new WalletDAO().createWallet(userId, conn);
                 } else {
                     throw new SQLException("Creating user failed, no ID obtained.");
                 }
