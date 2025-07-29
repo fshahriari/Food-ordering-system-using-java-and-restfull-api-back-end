@@ -155,10 +155,6 @@ public class UserController {
             throw new InvalidInputException("Invalid token"); //actually userId was invalid
         }
 
-        //409 Conflict: Placeholder for future optimistic locking logic.
-        // if (isConflict()) {
-        //     throw new ConflictException("Resource state has changed. Please refresh.");
-        // }
 
         User user = userDAO.findUserById(userId);
 
@@ -181,7 +177,7 @@ public class UserController {
 
         Map<String, Object> response = new HashMap<>();
         response.put("status", 200);
-        response.put("user", user);
+        response.put("user", buildUserResponseMap(user));
         return response;
     }
 

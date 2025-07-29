@@ -141,6 +141,10 @@ public class RequestHandler implements Runnable {
                 String token = null;
                 if (headers.containsKey("Authorization")) {
                     token = headers.get("Authorization").replace("Bearer ", "");
+                    System.out.println("Token: " + token);
+                    if (token.isEmpty()) {
+                        throw new UnauthorizedException("Authentication token is required.");
+                    }
                     userId = SessionRegistry.getUserIdFromToken(token);
                 }
 

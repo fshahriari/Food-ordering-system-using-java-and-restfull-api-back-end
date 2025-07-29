@@ -72,10 +72,10 @@ public class UserDAO {
             stmt.setString(5, user.getRole().getValue());
             stmt.setString(6, user.getAddress());
             if (GenerallController.isValidImage(user.getProfileImageBase64())) {
-                stmt.setBytes(7, user.getProfileImageBase64().getBytes());
-            }
-            else
+                stmt.setBytes(7, Base64.getDecoder().decode(user.getProfileImageBase64()));
+            } else {
                 stmt.setBytes(7, "".getBytes());
+            }
 
             BankInfo bankInfo = user.getBankInfo();
             if (bankInfo != null) {
@@ -120,11 +120,10 @@ public class UserDAO {
             stmt.setString(5, user.getRole().getValue());
             stmt.setString(6, user.getAddress());
             if (GenerallController.isValidImage(user.getProfileImageBase64())) {
-                stmt.setBytes(7, user.getProfileImageBase64().getBytes());
-            }
-            else
+                stmt.setBytes(7, Base64.getDecoder().decode(user.getProfileImageBase64()));
+            } else {
                 stmt.setBytes(7, "".getBytes());
-
+            }
             BankInfo bankInfo = user.getBankInfo();
             if (bankInfo != null) {
                 stmt.setString(8, bankInfo.getBankName());
@@ -169,10 +168,10 @@ public class UserDAO {
             stmt.setString(5, user.getRole().getValue());
             stmt.setString(6, user.getAddress());
             if (GenerallController.isValidImage(user.getProfileImageBase64())) {
-                stmt.setBytes(7, user.getProfileImageBase64().getBytes());
-            }
-            else
+                stmt.setBytes(7, Base64.getDecoder().decode(user.getProfileImageBase64()));
+            } else {
                 stmt.setBytes(7, "".getBytes());
+            }
 
             BankInfo bankInfo = user.getBankInfo();
             if (bankInfo != null) {

@@ -147,8 +147,7 @@ public class RestaurantController {
         if (food == null || food.getName() == null || food.getName().trim().isEmpty()) {
             throw new InvalidInputException("Food name is required.");
         }
-        if (food.getImageBase64() == null || food.getImageBase64().trim().isEmpty()
-            || !GenerallController.isValidImage(food.getImageBase64())) {
+        if (!GenerallController.isValidImage(food.getImageBase64())) {
             throw new InvalidInputException("Food image is required.");
         }
         if (food.getDescription() != null && food.getDescription().length() > 200) {
@@ -236,7 +235,7 @@ public class RestaurantController {
             if (updatedFood.getImageBase64().equals(updatedFood.getImageBase64())) {
                 throw new InvalidInputException("New image must be different from the current image.");
             }
-            if (GenerallController.isValidImage(updatedFood.getImageBase64())) {
+            if (!GenerallController.isValidImage(updatedFood.getImageBase64())) {
                 throw new InvalidInputException("Invalid image format. Please provide a valid Base64 encoded image.");
             }
             existingFood.setImageBase64(updatedFood.getImageBase64());
