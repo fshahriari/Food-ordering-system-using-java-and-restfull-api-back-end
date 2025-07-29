@@ -1,5 +1,7 @@
 package com.snappfood.model;
 
+import com.snappfood.controller.GenerallController;
+
 public class courier extends User
 {
     String vehicleType;
@@ -10,7 +12,7 @@ public class courier extends User
     public courier() {}
 
     public courier(String name, String phoneNumber, String email, String password, String address, String vehicleType, String licenseNumber, byte[] profileImage, BankInfo bankInfo) {
-        super(name, phoneNumber, email, password, Role.COURIER, address, profileImage, bankInfo);
+        super(name, phoneNumber, email, password, Role.COURIER, address, GenerallController.toBase64(profileImage), bankInfo);
         this.vehicleType = vehicleType;
         this.licenseNumber = licenseNumber;
         this.status = ConfirmStatus.PENDING;

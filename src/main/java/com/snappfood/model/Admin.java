@@ -1,6 +1,7 @@
 package com.snappfood.model;
 
 import com.snappfood.controller.AdminController;
+import com.snappfood.controller.GenerallController;
 import com.snappfood.dao.UserDAO;
 import com.snappfood.model.User;
 
@@ -11,7 +12,7 @@ import java.util.Scanner;
 public class Admin extends User {
 
     public Admin(String name, String phoneNumber, String email, String password, String address, byte[] profileImage) {
-        super(name, phoneNumber, email, password, Role.ADMIN, address, profileImage, null);
+        super(name, phoneNumber, email, password, Role.ADMIN, address, GenerallController.toBase64(profileImage), null);
     }
 
     public void confirm() {

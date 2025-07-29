@@ -1,4 +1,5 @@
 package com.snappfood.model;
+import com.snappfood.controller.GenerallController;
 import com.snappfood.model.ConfirmStatus;
 
 public class Seller extends User
@@ -8,7 +9,7 @@ public class Seller extends User
     private ConfirmStatus status = ConfirmStatus.PENDING;
 
     public Seller(String name, String phoneNumber, String email, String password, String address, byte[] profileImage, BankInfo bankInfo) {
-        super(name, phoneNumber, email, password, Role.SELLER, address, profileImage, bankInfo);
+        super(name, phoneNumber, email, password, Role.SELLER, address, GenerallController.toBase64(profileImage), bankInfo);
         this.status = ConfirmStatus.PENDING;
     }
 
