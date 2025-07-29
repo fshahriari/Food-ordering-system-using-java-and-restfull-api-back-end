@@ -534,4 +534,19 @@ public class UserDAO {
         }
         return users;
     }
+
+    public boolean isUserCustomer(String clientIp) throws SQLException {
+        String sql = "SELECT role FROM " + USERS_TABLE + " WHERE ip_address = ?";
+        try (Connection conn = DatabaseManager.getConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+            stmt.setString(1, clientIp);
+            try (ResultSet rs = stmt.executeQuery()) {
+                if (rs.next()) {
+                    String role = rs.getString("role");
+                    return role != null && role.equalsIgnoreCase(Role.CUSTOMER.getValue());
+                }
+            }
+        }
+        return false;
+    }
 }
