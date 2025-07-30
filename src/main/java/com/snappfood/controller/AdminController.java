@@ -190,15 +190,17 @@ public class AdminController {
         }
 
         try {
-            restaurantDAO.updatePendingRestaurantsBatch(restaurantUpdates);
+            List<Restaurant> approvedRestaurants = restaurantDAO.updatePendingRestaurantsBatch(restaurantUpdates);
+
+            Map<String, Object> response = new HashMap<>();
+            response.put("status", 200);
+            response.put("message", "Pending restaurants updated successfully.");
+            response.put("approved_restaurants", approvedRestaurants); // Add this line
+            return response;
+
         } catch (SQLException e) {
             throw new InvalidInputException(e.getMessage());
         }
-
-        Map<String, Object> response = new HashMap<>();
-        response.put("status", 200);
-        response.put("message", "Pending restaurants updated successfully.");
-        return response;
     }
 
     /**

@@ -311,7 +311,16 @@ public class RestaurantDAO {
         return pendingRestaurants;
     }
 
-    public void updatePendingRestaurantsBatch(List<RestaurantStatusUpdate> restaurantUpdates) throws SQLException {
+    /**
+     * Updates the status of multiple pending restaurants in a single batch operation.
+     * This method processes a list of RestaurantStatusUpdate objects, which contain
+     * the restaurant ID and the desired status (approved or rejected).
+     * @param restaurantUpdates A list of RestaurantStatusUpdate objects.
+     * @return A list of approved Restaurant objects.
+     * @throws SQLException if a database access error occurs.
+     */
+    public List<Restaurant> updatePendingRestaurantsBatch(List<RestaurantStatusUpdate> restaurantUpdates) throws SQLException {
+        List<Restaurant> approvedRestaurants = new ArrayList<>();
         Connection conn = null;
         String selectPendingSql = "SELECT * FROM " + PENDING_RESTAURANTS_TABLE + " WHERE id = ?";
         String insertRestaurantSql = "INSERT INTO " + RESTAURANTS_TABLE + " (name, logo_base64, address, phone_number, working_hours, category, tax_fee, additional_fee, seller_phone_number) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)";
@@ -322,7 +331,7 @@ public class RestaurantDAO {
             conn.setAutoCommit(false); // Start transaction
 
             PreparedStatement selectStmt = conn.prepareStatement(selectPendingSql);
-            PreparedStatement insertStmt = conn.prepareStatement(insertRestaurantSql);
+            PreparedStatement insertStmt = conn.prepareStatement(insertRestaurantSql, Statement.RETURN_GENERATED_KEYS);
             PreparedStatement deleteStmt = conn.prepareStatement(deletePendingSql);
 
             for (RestaurantStatusUpdate update : restaurantUpdates) {
@@ -349,19 +358,29 @@ public class RestaurantDAO {
                     insertStmt.setInt(7, pendingRestaurant.getTaxFee());
                     insertStmt.setInt(8, pendingRestaurant.getAdditionalFee());
                     insertStmt.setString(9, pendingRestaurant.getSellerPhoneNumber());
-                    insertStmt.addBatch();
+
+                    int affectedRows = insertStmt.executeUpdate();
+
+                    if (affectedRows > 0) {
+                        try (ResultSet generatedKeys = insertStmt.getGeneratedKeys()) {
+                            if (generatedKeys.next()) {
+                                pendingRestaurant.setId(generatedKeys.getInt(1));
+                                approvedRestaurants.add(pendingRestaurant);
+                            }
+                        }
+                    }
 
                     deleteStmt.setInt(1, update.getRestaurantId());
-                    deleteStmt.addBatch();
+                    deleteStmt.executeUpdate();
+
                 } else if ("rejected".equalsIgnoreCase(update.getStatus())) {
                     deleteStmt.setInt(1, update.getRestaurantId());
-                    deleteStmt.addBatch();
+                    deleteStmt.executeUpdate();
                 }
             }
 
-            insertStmt.executeBatch();
-            deleteStmt.executeBatch();
             conn.commit();
+            return approvedRestaurants;
 
         } catch (SQLException e) {
             if (conn != null) {

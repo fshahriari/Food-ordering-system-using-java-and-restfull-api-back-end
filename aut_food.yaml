@@ -1138,8 +1138,6 @@ paths:
                   type: string
                 vendor_id:
                   type: integer
-                coupon_id:
-                  type: integer
                 items:
                   type: array
                   items:
