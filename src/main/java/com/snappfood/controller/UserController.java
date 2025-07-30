@@ -432,7 +432,7 @@ public class UserController {
         userMap.put("id", user.getId());
         userMap.put("full_name", user.getName());
         userMap.put("phone", user.getPhone());
-        userMap.put("email", user.getEmail()); // Add this line
+        userMap.put("email", user.getEmail());
         userMap.put("role", user.getRole().getValue());
         userMap.put("address", user.getAddress());
         userMap.put("profileImageBase64", user.getProfileImageBase64());
