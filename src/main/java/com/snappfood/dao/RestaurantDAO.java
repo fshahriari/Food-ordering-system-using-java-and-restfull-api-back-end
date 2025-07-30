@@ -163,6 +163,27 @@ public class RestaurantDAO {
     }
 
     /**
+     * Retrieves the master list of all food items for a specific restaurant.
+     * @param restaurantId The ID of the restaurant.
+     * @return A list of Food objects.
+     * @throws SQLException if a database error occurs.
+     */
+    public List<Food> getMasterFoodList(int restaurantId) throws SQLException {
+        List<Food> foodItems = new ArrayList<>();
+        String sql = "SELECT * FROM " + FOOD_ITEMS_TABLE + " WHERE restaurant_id = ?";
+        try (Connection conn = DatabaseManager.getConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+            stmt.setInt(1, restaurantId);
+            try (ResultSet rs = stmt.executeQuery()) {
+                while (rs.next()) {
+                    foodItems.add(extractFoodFromResultSet(rs));
+                }
+            }
+        }
+        return foodItems;
+    }
+
+    /**
      * Adds an existing food item from the master list to a specific titled menu.
      */
     public void addFoodItemToMenu(int menuId, int foodItemId) throws SQLException {

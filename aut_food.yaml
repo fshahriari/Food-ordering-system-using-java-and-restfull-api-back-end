@@ -413,6 +413,40 @@ paths:
           $ref: '#/components/responses/too_many_requests'
         '500':
           $ref: '#/components/responses/internal_server_error'
+  /restaurants/{id}/items:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: integer
+        description: The ID of the restaurant whose master food list is to be retrieved.
+    get:
+      tags:
+        - restaurant
+      summary: Get the master list of food items for a restaurant
+      description: Retrieves a complete list of all food items created for a specific restaurant. This is the master list from which menus are built. Only the owner of the restaurant can access this endpoint.
+      security:
+        - bearerAuth: [ ]
+      responses:
+        '200':
+          description: A list of food items for the specified restaurant.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/food_item'
+        '400':
+          $ref: '#/components/responses/invalid_input'
+        '401':
+          $ref: '#/components/responses/unauthorized'
+        '403':
+          $ref: '#/components/responses/forbidden'
+        '404':
+          $ref: '#/components/responses/not_found'
+        '500':
+          $ref: '#/components/responses/internal_server_error'
   /restaurants/{id}/item:
     parameters:
       - name: id

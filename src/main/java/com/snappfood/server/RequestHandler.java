@@ -186,8 +186,13 @@ public class RequestHandler implements Runnable {
                             Integer restaurantId = Integer.parseInt(pathSegments[2]);
                             Restaurant updateData = gson.fromJson(body, Restaurant.class);
                             responseMap = restaurantController.handleUpdateRestaurant(restaurantId, updateData, userId);
-                        }
-                        else if (pathSegments.length == 4 && pathSegments[3].equals("item") && method.equals("POST")) {
+                        } else if (pathSegments.length == 4 && pathSegments[3].equals("items") && method.equals("GET")) {
+                            if (userId == null) {
+                                throw new UnauthorizedException("Authentication required. Please log in.");
+                            }
+                            int restaurantId = Integer.parseInt(pathSegments[2]);
+                            responseMap = restaurantController.handleGetMasterFoodList(userId, restaurantId);
+                        } else if (pathSegments.length == 4 && pathSegments[3].equals("item") && method.equals("POST")) {
                             if (userId == null) {
                                 throw new UnauthorizedException("Authentication required. Please log in.");
                             }
@@ -217,12 +222,12 @@ public class RequestHandler implements Runnable {
                             Integer restaurantId = Integer.parseInt(pathSegments[2]);
                             String title = pathSegments[4];
                             responseMap = restaurantController.handleDeleteTitledMenu(restaurantId, userId, title);
-                        }
-                        else if (pathSegments.length == 5 && pathSegments[3].equals("menu") && method.equals("PUT")) {
+                        } else if (pathSegments.length == 5 && pathSegments[3].equals("menu") && method.equals("PUT")) {
                             Integer restaurantId = Integer.parseInt(pathSegments[2]);
                             String title = pathSegments[4];
-                            Map<String, Integer> requestBody = gson.fromJson(body, Map.class);
-                            Integer itemId = requestBody != null ? requestBody.get("item_id") : null;
+                            Type type = new TypeToken<Map<String, Double>>(){}.getType();
+                            Map<String, Double> requestBody = gson.fromJson(body, type);
+                            Integer itemId = requestBody != null ? requestBody.get("item_id").intValue() : null;
                             responseMap = restaurantController.handleAddItemToTitledMenu(restaurantId, userId, title, itemId);
                         } else if (pathSegments.length == 6 && pathSegments[3].equals("menu") && method.equals("DELETE")) {
                             Integer restaurantId = Integer.parseInt(pathSegments[2]);
@@ -249,18 +254,20 @@ public class RequestHandler implements Runnable {
 
                             Order order = new Order();
                             order.setDeliveryAddress((String) orderRequest.get("delivery_address"));
-                            order.setRestaurantId(((Double) orderRequest.get("vendor_id")).intValue());
+
+                            // Treat all numbers as the generic Number class
+                            order.setRestaurantId(((Number) orderRequest.get("vendor_id")).intValue());
                             if (orderRequest.get("coupon_id") != null) {
-                                order.setCouponId(((Double) orderRequest.get("coupon_id")).intValue());
+                                order.setCouponId(((Number) orderRequest.get("coupon_id")).intValue());
                             }
 
-                            List<Map<String, Double>> itemsList = (List<Map<String, Double>>) orderRequest.get("items");
+                            List<Map<String, Object>> itemsList = (List<Map<String, Object>>) orderRequest.get("items");
                             Map<Integer, Integer> itemsMap = new HashMap<>();
-                            for (Map<String, Double> item : itemsList) {
-                                itemsMap.put(item.get("item_id").intValue(), item.get("quantity").intValue());
+                            for (Map<String, Object> item : itemsList) {
+                                itemsMap.put(((Number) item.get("item_id")).intValue(), ((Number) item.get("quantity")).intValue());
                             }
-                            order.setItems(itemsMap);
 
+                            order.setItems(itemsMap);
                             responseMap = orderController.handleCreateOrder(order, userId);
                         } else if (pathSegments.length == 3 && method.equals("GET")) {
                             int orderId = Integer.parseInt(pathSegments[2]);

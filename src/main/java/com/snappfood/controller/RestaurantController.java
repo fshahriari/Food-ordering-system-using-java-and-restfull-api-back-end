@@ -90,6 +90,18 @@ public class RestaurantController {
         if (restaurant.getAddress() == null || restaurant.getAddress().trim().isEmpty()) {
             throw new InvalidInputException("Restaurant address is required.");
         }
+
+        //checks if the restaurant phone number already exists
+        if (restaurant.getPhoneNumber() != null) {
+            Restaurant existingRestaurant = restaurantDAO.getRestaurantByPhoneNumber(restaurant.getPhoneNumber());
+            if (existingRestaurant != null) {
+                throw new ConflictException("A restaurant with this phone number already exists.");
+            }
+        } else {
+            throw new InvalidInputException("Restaurant phone number is required.");
+        }
+
+
         if (restaurant.getPhoneNumber() == null || !restaurant.getPhoneNumber().matches("^[0-9]{10,15}$")) {
             throw new InvalidInputException("A valid phone number is required.");
         }
@@ -133,6 +145,24 @@ public class RestaurantController {
         response.put("status", 200);
         response.put("approved_restaurants", approvedRestaurants);
         response.put("pending_restaurants", pendingRestaurants);
+        return response;
+    }
+
+    /**
+     * Handles fetching the master food list for a restaurant.
+     * @param sellerId The ID of the authenticated seller.
+     * @param restaurantId The ID of the restaurant.
+     * @return A map containing the list of food items.
+     * @throws Exception for any validation, authorization, or database errors.
+     */
+    public Map<String, Object> handleGetMasterFoodList(Integer sellerId, int restaurantId) throws Exception {
+        authorizeSellerAction(sellerId, restaurantId); // Re-uses your existing authorization logic
+
+        List<Food> masterList = restaurantDAO.getMasterFoodList(restaurantId);
+
+        Map<String, Object> response = new HashMap<>();
+        response.put("status", 200);
+        response.put("items", masterList);
         return response;
     }
 
