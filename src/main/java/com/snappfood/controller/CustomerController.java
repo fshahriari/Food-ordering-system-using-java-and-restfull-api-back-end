@@ -25,7 +25,8 @@ public class CustomerController {
 
     /**
      * Handles fetching the detailed view of a single restaurant, including its menus and food items.
-     * @param userId The ID of the authenticated user.
+     *
+     * @param userId       The ID of the authenticated user.
      * @param restaurantId The ID of the restaurant to fetch.
      * @return A map containing the restaurant's details and its structured menu.
      * @throws Exception for authorization, validation, or database errors.
@@ -59,6 +60,7 @@ public class CustomerController {
 
     /**
      * Handles fetching the details of a single food item, ensuring it belongs to an approved restaurant.
+     *
      * @param userId The ID of the authenticated user.
      * @param itemId The ID of the food item to fetch.
      * @return A map containing the food item's details.
@@ -83,7 +85,8 @@ public class CustomerController {
 
     /**
      * Handles adding a restaurant to a customer's favorites list.
-     * @param userId The ID of the authenticated customer.
+     *
+     * @param userId       The ID of the authenticated customer.
      * @param restaurantId The ID of the restaurant to favorite.
      * @return A map with a success message.
      * @throws Exception for any validation, authorization, or database errors.
@@ -113,6 +116,7 @@ public class CustomerController {
 
     /**
      * Handles fetching the list of favorite restaurants for a customer.
+     *
      * @param userId The ID of the authenticated customer.
      * @return A map containing the list of favorite restaurants.
      * @throws Exception for any validation, authorization, or database errors.
@@ -137,7 +141,8 @@ public class CustomerController {
 
     /**
      * Handles removing a restaurant from a customer's favorites list.
-     * @param userId The ID of the authenticated customer.
+     *
+     * @param userId       The ID of the authenticated customer.
      * @param restaurantId The ID of the restaurant to remove from favorites.
      * @return A map with a success message.
      * @throws Exception for any validation, authorization, or database errors.
@@ -168,6 +173,7 @@ public class CustomerController {
 
     /**
      * Handles the submission of a new rating for an order.
+     *
      * @param userId The ID of the authenticated customer.
      * @param rating The rating object parsed from the request body.
      * @return A map with a success message.
@@ -223,7 +229,8 @@ public class CustomerController {
 
     /**
      * Handles listing vendors with optional filters and sorting.
-     * @param userId The ID of the authenticated user.
+     *
+     * @param userId  The ID of the authenticated user.
      * @param filters A map containing the filter and sort criteria.
      * @return A map containing the list of matching restaurants.
      * @throws Exception for any validation, authorization, or database errors.
@@ -258,7 +265,8 @@ public class CustomerController {
 
     /**
      * Handles listing food items with optional filters and sorting.
-     * @param userId The ID of the authenticated user.
+     *
+     * @param userId  The ID of the authenticated user.
      * @param filters A map containing the filter and sort criteria.
      * @return A map containing the list of matching food items.
      * @throws Exception for any validation, authorization, or database errors.
@@ -283,6 +291,33 @@ public class CustomerController {
         Map<String, Object> response = new HashMap<>();
         response.put("status", 200);
         response.put("items", foodItems);
+        return response;
+    }
+
+    /**
+     * Handles fetching ratings for a specific order.
+     *
+     * @param userId  The ID of the authenticated user.
+     * @param orderId The ID of the order.
+     * @return A map containing the list of ratings.
+     * @throws Exception for any validation, authorization, or database errors.
+     */
+    public Map<String, Object> handleGetRatingByOrderId(Integer userId, int orderId) throws Exception {
+        if (userId == null) {
+            throw new UnauthorizedException("You must be logged in to view ratings.");
+        }
+
+        Order order = orderDAO.getOrderById(orderId);
+        if (order == null) {
+            throw new ResourceNotFoundException("Order with ID " + orderId + " not found.");
+        }
+
+
+        List<Rating> ratings = ratingDAO.getRatingsByOrderId(orderId);
+
+        Map<String, Object> response = new HashMap<>();
+        response.put("status", 200);
+        response.put("ratings", ratings);
         return response;
     }
 }

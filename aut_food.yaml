@@ -1407,9 +1407,9 @@ paths:
           $ref: '#/components/responses/too_many_requests'
         '500':
           $ref: '#/components/responses/internal_server_error'
-  /ratings/items/{item_id}:
+  /ratings/items/{order_id}:
     parameters:
-      - name: item_id
+      - name: order_id
         in: path
         required: true
         schema:
@@ -1417,20 +1417,18 @@ paths:
     get:
       tags:
         - buyer
-      summary: Get ratings and reviews for a specific item
+      summary: Get ratings and reviews for a specific order
       security:
-        - bearerAuth: []
+        - bearerAuth: [ ]
       responses:
         '200':
-          description: List of ratings and reviews
+          description: List of ratings and reviews for the order
           content:
             application/json:
               schema:
                 type: object
                 properties:
-                  avg_rating:
-                    type: number
-                  comments:
+                  ratings:
                     type: array
                     items:
                       $ref: '#/components/schemas/rating'

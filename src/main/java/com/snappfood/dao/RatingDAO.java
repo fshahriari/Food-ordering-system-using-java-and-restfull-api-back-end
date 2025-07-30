@@ -8,6 +8,8 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * Data Access Object for handling database operations related to ratings.
@@ -42,5 +44,38 @@ public class RatingDAO {
                 }
             }
         }
+    }
+
+    /**
+     * Retrieves all ratings for a given order ID.
+     * @param orderId The ID of the order.
+     * @return A list of Rating objects.
+     * @throws SQLException if a database error occurs.
+     */
+    public List<Rating> getRatingsByOrderId(int orderId) throws SQLException {
+        List<Rating> ratings = new ArrayList<>();
+        String sql = "SELECT * FROM " + RATINGS_TABLE + " WHERE order_id = ?";
+        try (Connection conn = DatabaseManager.getConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+            stmt.setInt(1, orderId);
+            try (ResultSet rs = stmt.executeQuery()) {
+                while (rs.next()) {
+                    ratings.add(extractRatingFromResultSet(rs));
+                }
+            }
+        }
+        return ratings;
+    }
+
+    private Rating extractRatingFromResultSet(ResultSet rs) throws SQLException {
+        Rating rating = new Rating();
+        rating.setId(rs.getInt("id"));
+        rating.setOrderId(rs.getInt("order_id"));
+        rating.setCustomerId(rs.getInt("customer_id"));
+        rating.setRestaurantId(rs.getInt("restaurant_id"));
+        rating.setRating(rs.getInt("rating"));
+        rating.setComment(rs.getString("comment"));
+        rating.setCreatedAt(rs.getTimestamp("created_at"));
+        return rating;
     }
 }

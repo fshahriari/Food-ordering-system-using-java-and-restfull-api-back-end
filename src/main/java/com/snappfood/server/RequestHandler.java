@@ -338,6 +338,9 @@ public class RequestHandler implements Runnable {
                         if (path.equals("/ratings") && method.equals("POST")) {
                             Rating rating = gson.fromJson(body, Rating.class);
                             responseMap = customerController.handleSubmitRating(userId, rating);
+                        } else if (pathSegments.length == 3 && method.equals("GET")) {
+                            int orderId = Integer.parseInt(pathSegments[2]);
+                            responseMap = customerController.handleGetRatingByOrderId(userId, orderId);
                         }
                         break;
                     case "deliveries":
